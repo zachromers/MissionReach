@@ -54,7 +54,7 @@ uploadBtn.addEventListener('click', async () => {
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
 
-    const res = await fetch('/api/import/preview', { method: 'POST', body: formData });
+    const res = await fetch('api/import/preview', { method: 'POST', body: formData });
     const data = await res.json();
 
     if (!res.ok) throw new Error(data.error);
@@ -147,7 +147,7 @@ document.getElementById('btn-import-execute').addEventListener('click', async ()
   btn.textContent = 'Importing...';
 
   try {
-    const data = await api('/api/import/execute', {
+    const data = await api('api/import/execute', {
       method: 'POST',
       body: {
         filePath: importState.filePath,

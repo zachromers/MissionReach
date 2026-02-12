@@ -2,7 +2,7 @@
 
 async function loadSettings() {
   try {
-    const settings = await api('/api/settings');
+    const settings = await api('api/settings');
     document.getElementById('setting-name').value = settings.missionary_name || '';
     document.getElementById('setting-context').value = settings.missionary_context || '';
     document.getElementById('setting-stale-days').value = settings.default_stale_days || '90';
@@ -34,7 +34,7 @@ document.getElementById('settings-form').addEventListener('submit', async (e) =>
   }
 
   try {
-    await api('/api/settings', { method: 'PUT', body: data });
+    await api('api/settings', { method: 'PUT', body: data });
     messageEl.textContent = 'Settings saved successfully.';
     messageEl.className = 'success';
     messageEl.classList.remove('hidden');

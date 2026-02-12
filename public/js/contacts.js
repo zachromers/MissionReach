@@ -14,7 +14,7 @@ async function loadContacts() {
     params.set('sort', currentSort);
     params.set('order', currentOrder);
 
-    const contacts = await api(`/api/contacts?${params}`);
+    const contacts = await api(`api/contacts?${params}`);
     renderContactsTable(contacts);
     collectTags(contacts);
     renderTagFilters();
@@ -107,7 +107,7 @@ document.getElementById('btn-add-contact').addEventListener('click', () => {
 // Export CSV
 document.getElementById('btn-export-csv').addEventListener('click', async () => {
   try {
-    const res = await fetch('/api/contacts/export/csv');
+    const res = await fetch('api/contacts/export/csv');
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -123,7 +123,7 @@ document.getElementById('btn-export-csv').addEventListener('click', async () => 
 // Open contact detail
 async function openContactDetail(id) {
   try {
-    const contact = await api(`/api/contacts/${id}`);
+    const contact = await api(`api/contacts/${id}`);
     renderContactModal(contact);
     showModal('contact-modal');
   } catch (err) {
@@ -248,7 +248,7 @@ function renderContactModal(contact) {
     const form = e.target;
     const data = Object.fromEntries(new FormData(form));
     try {
-      await api(`/api/contacts/${form.dataset.id}`, { method: 'PUT', body: data });
+      await api(`api/contacts/${form.dataset.id}`, { method: 'PUT', body: data });
       hideModal('contact-modal');
       loadContacts();
     } catch (err) {
@@ -260,7 +260,7 @@ function renderContactModal(contact) {
   body.querySelector('#btn-delete-contact').addEventListener('click', async () => {
     if (!confirm('Are you sure you want to delete this contact and all related records?')) return;
     try {
-      await api(`/api/contacts/${contact.id}`, { method: 'DELETE' });
+      await api(`api/contacts/${contact.id}`, { method: 'DELETE' });
       hideModal('contact-modal');
       loadContacts();
     } catch (err) {
@@ -356,7 +356,7 @@ function openContactForm(contact) {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.target));
     try {
-      await api('/api/contacts', { method: 'POST', body: data });
+      await api('api/contacts', { method: 'POST', body: data });
       hideModal('contact-modal');
       loadContacts();
     } catch (err) {
@@ -416,7 +416,7 @@ function openDonationForm(contactId) {
     const formData = Object.fromEntries(new FormData(e.target));
     formData.recurring = formData.recurring === 'on';
     try {
-      await api(`/api/contacts/${contactId}/donations`, { method: 'POST', body: formData });
+      await api(`api/contacts/${contactId}/donations`, { method: 'POST', body: formData });
       // Reload contact detail
       openContactDetail(contactId);
     } catch (err) {

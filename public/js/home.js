@@ -6,7 +6,7 @@ function initHome() {
 
 async function loadDashboardStats() {
   try {
-    const stats = await api('/api/ai/stats');
+    const stats = await api('api/ai/stats');
     document.getElementById('stat-total-contacts').textContent = stats.totalContacts;
     document.getElementById('stat-stale-contacts').textContent = stats.staleContacts;
     document.getElementById('stat-ytd-donations').textContent = formatCurrency(stats.ytdDonations);
@@ -36,7 +36,7 @@ document.getElementById('btn-generate').addEventListener('click', async () => {
   document.getElementById('btn-generate').disabled = true;
 
   try {
-    const data = await api('/api/ai/prompt', {
+    const data = await api('api/ai/prompt', {
       method: 'POST',
       body: { prompt },
     });
@@ -151,7 +151,7 @@ document.getElementById('btn-log-all').addEventListener('click', async () => {
   try {
     for (const rec of lastAiResults.contacts) {
       const emailDraft = rec.email_draft || {};
-      await api(`/api/contacts/${rec.contact_id}/outreaches`, {
+      await api(`api/contacts/${rec.contact_id}/outreaches`, {
         method: 'POST',
         body: {
           mode: 'email',
@@ -206,7 +206,7 @@ document.getElementById('outreach-form').addEventListener('submit', async (e) =>
   const contactId = document.getElementById('outreach-contact-id').value;
 
   try {
-    await api(`/api/contacts/${contactId}/outreaches`, {
+    await api(`api/contacts/${contactId}/outreaches`, {
       method: 'POST',
       body: {
         mode: document.getElementById('outreach-mode').value,

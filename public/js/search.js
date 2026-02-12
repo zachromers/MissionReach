@@ -24,7 +24,7 @@ function gatherSearchFilters() {
 async function loadSearchResults() {
   try {
     const params = gatherSearchFilters();
-    const contacts = await api(`/api/contacts?${params}`);
+    const contacts = await api(`api/contacts?${params}`);
     lastSearchResults = contacts;
     renderSearchTable(contacts);
     document.getElementById('search-count').textContent = contacts.length;
@@ -118,7 +118,7 @@ document.addEventListener('click', async (e) => {
   if (!e.target.matches('#btn-search-export-csv')) return;
   try {
     const params = gatherSearchFilters();
-    const res = await fetch(`/api/contacts/export/csv?${params}`);
+    const res = await fetch(`api/contacts/export/csv?${params}`);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
