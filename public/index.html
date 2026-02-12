@@ -12,6 +12,7 @@
     <div class="nav-tabs">
       <button class="nav-tab active" data-tab="home">Home</button>
       <button class="nav-tab" data-tab="contacts">Contacts</button>
+      <button class="nav-tab" data-tab="search">Search</button>
       <button class="nav-tab" data-tab="import">Import</button>
       <button class="nav-tab" data-tab="settings">Settings</button>
     </div>
@@ -100,6 +101,69 @@
             </tr>
           </thead>
           <tbody id="contacts-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SEARCH PAGE -->
+    <section id="page-search" class="page">
+      <div class="search-header">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+          <h2 style="font-size:20px;margin:0;">Search Contacts <span id="search-count" class="badge">0</span></h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="btn-search-export-csv" class="btn btn-sm">Export CSV</button>
+            <button id="btn-search-copy-emails" class="btn btn-sm">Copy Emails</button>
+            <button id="btn-search-copy-phones" class="btn btn-sm">Copy Phones</button>
+            <button id="btn-search-clear" class="btn btn-sm">Clear Filters</button>
+          </div>
+        </div>
+      </div>
+      <div class="search-table-wrap">
+        <table class="search-table">
+          <thead>
+            <tr class="search-col-headers">
+              <th data-sort="last_name">Name</th>
+              <th data-sort="email">Email</th>
+              <th data-sort="phone">Phone</th>
+              <th data-sort="city">City</th>
+              <th data-sort="state">State</th>
+              <th data-sort="organization">Organization</th>
+              <th data-sort="relationship">Relationship</th>
+              <th>Tags</th>
+              <th data-sort="last_outreach_date">Last Contact</th>
+              <th data-sort="last_donation_date">Last Donation</th>
+              <th data-sort="total_donated">Total Donated</th>
+            </tr>
+            <tr class="search-filter-row">
+              <td><input type="text" class="filter-input" data-filter="name_filter" placeholder="Name..."></td>
+              <td><input type="text" class="filter-input" data-filter="email_filter" placeholder="Email..."></td>
+              <td><input type="text" class="filter-input" data-filter="phone_filter" placeholder="Phone..."></td>
+              <td><input type="text" class="filter-input" data-filter="city" placeholder="City..."></td>
+              <td><input type="text" class="filter-input" data-filter="state" placeholder="State..."></td>
+              <td><input type="text" class="filter-input" data-filter="organization" placeholder="Org..."></td>
+              <td><input type="text" class="filter-input" data-filter="relationship" placeholder="Rel..."></td>
+              <td></td>
+              <td>
+                <div class="filter-date-range">
+                  <input type="date" class="filter-input" data-filter="outreach_from" title="From">
+                  <input type="date" class="filter-input" data-filter="outreach_to" title="To">
+                </div>
+              </td>
+              <td>
+                <div class="filter-date-range">
+                  <input type="date" class="filter-input" data-filter="donation_from" title="From">
+                  <input type="date" class="filter-input" data-filter="donation_to" title="To">
+                </div>
+              </td>
+              <td>
+                <div class="filter-range">
+                  <input type="number" class="filter-input" data-filter="total_donated_min" placeholder="Min" step="0.01">
+                  <input type="number" class="filter-input" data-filter="total_donated_max" placeholder="Max" step="0.01">
+                </div>
+              </td>
+            </tr>
+          </thead>
+          <tbody id="search-tbody"></tbody>
         </table>
       </div>
     </section>
@@ -224,6 +288,7 @@
   <script src="/js/utils.js"></script>
   <script src="/js/home.js"></script>
   <script src="/js/contacts.js"></script>
+  <script src="/js/search.js"></script>
   <script src="/js/import.js"></script>
   <script src="/js/settings.js"></script>
   <script src="/js/app.js"></script>

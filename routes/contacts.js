@@ -2,18 +2,130 @@ const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/database');
 
+// Shared query builder for contacts list + CSV export
+function buildContactQuery(query) {
+  const { search, tag, sort, order,
+    name_filter, email_filter, phone_filter,
+    city, state, organization, relationship,
+    outreach_from, outreach_to,
+    donation_from, donation_to,
+    total_donated_min, total_donated_max,
+    has_email, has_phone } = query;
+
+  let sql = `
+    SELECT c.*,
+      (SELECT MAX(o.date) FROM outreaches o WHERE o.contact_id = c.id) as last_outreach_date,
+      (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) as last_donation_date,
+      (SELECT d.amount FROM donations d WHERE d.contact_id = c.id ORDER BY d.date DESC LIMIT 1) as last_donation_amount,
+      (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) as total_donated
+    FROM contacts c
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (search) {
+    sql += ` AND (c.first_name LIKE ? OR c.last_name LIKE ? OR c.email LIKE ? OR c.organization LIKE ? OR c.phone LIKE ?)`;
+    const term = `%${search}%`;
+    params.push(term, term, term, term, term);
+  }
+
+  if (tag) {
+    sql += ` AND (',' || c.tags || ',') LIKE ?`;
+    params.push(`%,${tag},%`);
+  }
+
+  // Per-column LIKE filters
+  if (name_filter) {
+    sql += ` AND (c.first_name LIKE ? OR c.last_name LIKE ? OR (c.first_name || ' ' || c.last_name) LIKE ?)`;
+    const t = `%${name_filter}%`;
+    params.push(t, t, t);
+  }
+  if (email_filter) {
+    sql += ` AND c.email LIKE ?`;
+    params.push(`%${email_filter}%`);
+  }
+  if (phone_filter) {
+    sql += ` AND c.phone LIKE ?`;
+    params.push(`%${phone_filter}%`);
+  }
+  if (city) {
+    sql += ` AND c.city LIKE ?`;
+    params.push(`%${city}%`);
+  }
+  if (state) {
+    sql += ` AND c.state LIKE ?`;
+    params.push(`%${state}%`);
+  }
+  if (organization) {
+    sql += ` AND c.organization LIKE ?`;
+    params.push(`%${organization}%`);
+  }
+  if (relationship) {
+    sql += ` AND c.relationship LIKE ?`;
+    params.push(`%${relationship}%`);
+  }
+
+  // Boolean filters
+  if (has_email === '1') {
+    sql += ` AND c.email IS NOT NULL AND c.email != ''`;
+  } else if (has_email === '0') {
+    sql += ` AND (c.email IS NULL OR c.email = '')`;
+  }
+  if (has_phone === '1') {
+    sql += ` AND c.phone IS NOT NULL AND c.phone != ''`;
+  } else if (has_phone === '0') {
+    sql += ` AND (c.phone IS NULL OR c.phone = '')`;
+  }
+
+  // Date range filters (on computed subqueries via HAVING-style re-filter)
+  if (outreach_from) {
+    sql += ` AND (SELECT MAX(o.date) FROM outreaches o WHERE o.contact_id = c.id) >= ?`;
+    params.push(outreach_from);
+  }
+  if (outreach_to) {
+    sql += ` AND (SELECT MAX(o.date) FROM outreaches o WHERE o.contact_id = c.id) <= ?`;
+    params.push(outreach_to);
+  }
+  if (donation_from) {
+    sql += ` AND (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) >= ?`;
+    params.push(donation_from);
+  }
+  if (donation_to) {
+    sql += ` AND (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) <= ?`;
+    params.push(donation_to);
+  }
+
+  // Numeric range on total donated
+  if (total_donated_min) {
+    sql += ` AND (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) >= ?`;
+    params.push(Number(total_donated_min));
+  }
+  if (total_donated_max) {
+    sql += ` AND (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) <= ?`;
+    params.push(Number(total_donated_max));
+  }
+
+  const allowedSorts = ['first_name', 'last_name', 'email', 'created_at', 'last_outreach_date', 'last_donation_date', 'total_donated', 'city', 'state', 'organization', 'relationship', 'phone'];
+  const sortCol = allowedSorts.includes(sort) ? sort : 'last_name';
+  const sortOrder = order === 'desc' ? 'DESC' : 'ASC';
+  sql += ` ORDER BY ${sortCol} ${sortOrder}`;
+
+  return { sql, params };
+}
+
 // GET /api/contacts/export/csv — MUST be before /:id
 router.get('/export/csv', (req, res) => {
   try {
     const db = getDb();
-    const contacts = db.prepare('SELECT * FROM contacts ORDER BY last_name, first_name').all();
+    const { sql, params } = buildContactQuery(req.query);
+    const contacts = db.prepare(sql).all(...params);
 
-    const headers = ['first_name', 'last_name', 'email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'zip', 'country', 'organization', 'relationship', 'notes', 'tags'];
+    const headers = ['first_name', 'last_name', 'email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'zip', 'country', 'organization', 'relationship', 'notes', 'tags', 'last_outreach_date', 'last_donation_date', 'last_donation_amount', 'total_donated'];
     const csvRows = [headers.join(',')];
 
     for (const c of contacts) {
       const row = headers.map(h => {
-        const val = c[h] || '';
+        const val = c[h] != null ? c[h] : '';
         return `"${String(val).replace(/"/g, '""')}"`;
       });
       csvRows.push(row.join(','));
@@ -27,39 +139,11 @@ router.get('/export/csv', (req, res) => {
   }
 });
 
-// GET /api/contacts — list all, with search/tag/sort
+// GET /api/contacts — list all, with search/tag/sort/filters
 router.get('/', (req, res) => {
   try {
     const db = getDb();
-    const { search, tag, sort, order } = req.query;
-
-    let sql = `
-      SELECT c.*,
-        (SELECT MAX(o.date) FROM outreaches o WHERE o.contact_id = c.id) as last_outreach_date,
-        (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) as last_donation_date,
-        (SELECT d.amount FROM donations d WHERE d.contact_id = c.id ORDER BY d.date DESC LIMIT 1) as last_donation_amount,
-        (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) as total_donated
-      FROM contacts c
-      WHERE 1=1
-    `;
-    const params = [];
-
-    if (search) {
-      sql += ` AND (c.first_name LIKE ? OR c.last_name LIKE ? OR c.email LIKE ? OR c.organization LIKE ? OR c.phone LIKE ?)`;
-      const term = `%${search}%`;
-      params.push(term, term, term, term, term);
-    }
-
-    if (tag) {
-      sql += ` AND (',' || c.tags || ',') LIKE ?`;
-      params.push(`%,${tag},%`);
-    }
-
-    const allowedSorts = ['first_name', 'last_name', 'email', 'created_at', 'last_outreach_date', 'last_donation_date', 'total_donated'];
-    const sortCol = allowedSorts.includes(sort) ? sort : 'last_name';
-    const sortOrder = order === 'desc' ? 'DESC' : 'ASC';
-    sql += ` ORDER BY ${sortCol} ${sortOrder}`;
-
+    const { sql, params } = buildContactQuery(req.query);
     const contacts = db.prepare(sql).all(...params);
     res.json(contacts);
   } catch (err) {

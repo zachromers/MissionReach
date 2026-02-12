@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Trigger page-specific init
       if (target === 'home') initHome();
       if (target === 'contacts') loadContacts();
+      if (target === 'search') initSearch();
       if (target === 'settings') loadSettings();
     });
   });
