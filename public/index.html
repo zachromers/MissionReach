@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MissionReach</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="nav-brand">MissionReach</div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-tab="home">Home</button>
+      <button class="nav-tab" data-tab="contacts">Contacts</button>
+      <button class="nav-tab" data-tab="import">Import</button>
+      <button class="nav-tab" data-tab="settings">Settings</button>
+    </div>
+  </nav>
+
+  <main class="content">
+    <!-- HOME PAGE -->
+    <section id="page-home" class="page active">
+      <div class="dashboard-stats">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-total-contacts">0</div>
+          <div class="stat-label">Total Contacts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-stale-contacts">0</div>
+          <div class="stat-label">Stale Contacts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-ytd-donations">$0</div>
+          <div class="stat-label">Donations (YTD)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-outreaches-month">0</div>
+          <div class="stat-label">Outreaches This Month</div>
+        </div>
+      </div>
+
+      <div class="prompt-section">
+        <h1>Who should you reach out to?</h1>
+        <p class="subtitle">Ask in plain English and get AI-powered outreach recommendations</p>
+
+        <div class="prompt-chips">
+          <button class="chip" data-prompt="Who haven't I contacted in 3+ months?">Who haven't I contacted in 3+ months?</button>
+          <button class="chip" data-prompt="Lapsed donors from the past year">Lapsed donors from the past year</button>
+          <button class="chip" data-prompt="New contacts I haven't reached out to yet">New contacts I haven't reached out to yet</button>
+          <button class="chip" data-prompt="Top donors I should thank">Top donors I should thank</button>
+        </div>
+
+        <textarea id="ai-prompt" placeholder='e.g. "Who used to donate monthly but stopped in the last 6 months?"' rows="4"></textarea>
+        <button id="btn-generate" class="btn btn-primary">Generate Recommendations</button>
+
+        <div id="ai-results" class="ai-results hidden">
+          <div class="results-header">
+            <h2>Recommended Contacts <span id="results-count" class="badge"></span></h2>
+            <div class="bulk-actions">
+              <button id="btn-log-all" class="btn btn-sm">Log All as Outreach</button>
+              <button id="btn-export-drafts" class="btn btn-sm">Export Drafts</button>
+            </div>
+          </div>
+          <div id="results-cards"></div>
+          <details class="reasoning-section">
+            <summary>AI Reasoning</summary>
+            <p id="ai-reasoning"></p>
+          </details>
+        </div>
+
+        <div id="ai-loading" class="hidden">
+          <div class="spinner"></div>
+          <p>Analyzing your contacts and generating recommendations...</p>
+        </div>
+
+        <div id="ai-error" class="hidden error-message"></div>
+      </div>
+    </section>
+
+    <!-- CONTACTS PAGE -->
+    <section id="page-contacts" class="page">
+      <div class="contacts-header">
+        <div class="contacts-search-row">
+          <input type="text" id="contacts-search" placeholder="Search contacts..." class="search-input">
+          <button id="btn-export-csv" class="btn btn-sm">Export Contacts</button>
+          <button id="btn-add-contact" class="btn btn-primary">Add New Contact</button>
+        </div>
+        <div class="tag-filters" id="tag-filters"></div>
+      </div>
+      <div class="contacts-table-wrap">
+        <table class="contacts-table">
+          <thead>
+            <tr>
+              <th data-sort="last_name">Name</th>
+              <th data-sort="email">Email</th>
+              <th>Phone</th>
+              <th data-sort="last_outreach_date">Last Contact</th>
+              <th data-sort="last_donation_date">Last Donation</th>
+              <th>Tags</th>
+            </tr>
+          </thead>
+          <tbody id="contacts-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- IMPORT PAGE -->
+    <section id="page-import" class="page">
+      <div class="import-section">
+        <div id="import-step1">
+          <h2>Import Contacts</h2>
+          <p>Upload a CSV or Excel file to import contacts.</p>
+          <div class="drop-zone" id="drop-zone">
+            <p>Drag & drop a file here, or click to select</p>
+            <p class="drop-hint">Accepts .csv, .xlsx, .xls files</p>
+            <input type="file" id="import-file" accept=".csv,.xlsx,.xls" hidden>
+          </div>
+          <button id="btn-upload-preview" class="btn btn-primary" disabled>Upload & Preview</button>
+        </div>
+
+        <div id="import-step2" class="hidden">
+          <h2>Preview & Map Columns</h2>
+          <p id="import-summary"></p>
+          <div class="preview-table-wrap">
+            <table class="preview-table" id="preview-table"></table>
+          </div>
+          <button id="btn-import-execute" class="btn btn-primary">Import Contacts</button>
+          <button id="btn-import-back" class="btn">Back</button>
+        </div>
+
+        <div id="import-step3" class="hidden">
+          <h2>Import Complete</h2>
+          <div id="import-results"></div>
+          <button id="btn-goto-contacts" class="btn btn-primary">Go to Contacts</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS PAGE -->
+    <section id="page-settings" class="page">
+      <div class="settings-section">
+        <h2>Settings</h2>
+        <form id="settings-form">
+          <div class="form-group">
+            <label for="setting-name">Your Name</label>
+            <input type="text" id="setting-name" placeholder="Your full name">
+          </div>
+          <div class="form-group">
+            <label for="setting-context">Mission Context</label>
+            <textarea id="setting-context" rows="4" placeholder="Describe your mission, ministry, or organization in a few sentences. This helps the AI write more personalized messages."></textarea>
+          </div>
+          <div class="form-group">
+            <label for="setting-apikey">Anthropic API Key</label>
+            <div class="input-with-toggle">
+              <input type="password" id="setting-apikey" placeholder="sk-ant-...">
+              <button type="button" id="toggle-apikey" class="btn btn-sm">Show</button>
+            </div>
+            <small>Your API key is stored locally and never sent anywhere except directly to the Anthropic API.</small>
+          </div>
+          <div class="form-group">
+            <label for="setting-stale-days">Default Stale Contact Threshold (days)</label>
+            <input type="number" id="setting-stale-days" value="90" min="1">
+            <small>Contacts with no outreach in this many days will be flagged.</small>
+          </div>
+          <button type="submit" class="btn btn-primary">Save Settings</button>
+          <div id="settings-message" class="hidden"></div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- CONTACT DETAIL MODAL -->
+  <div id="contact-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 id="modal-title">Contact Details</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- OUTREACH LOG MODAL -->
+  <div id="outreach-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-panel modal-sm">
+      <div class="modal-header">
+        <h2>Log Outreach</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="outreach-form">
+          <input type="hidden" id="outreach-contact-id">
+          <div class="form-group">
+            <label for="outreach-mode">Mode</label>
+            <select id="outreach-mode">
+              <option value="email">Email</option>
+              <option value="sms">SMS</option>
+              <option value="call">Call</option>
+              <option value="letter">Letter</option>
+              <option value="in_person">In Person</option>
+              <option value="social_media">Social Media</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="outreach-subject">Subject</label>
+            <input type="text" id="outreach-subject">
+          </div>
+          <div class="form-group">
+            <label for="outreach-content">Content</label>
+            <textarea id="outreach-content" rows="4"></textarea>
+          </div>
+          <div class="form-group">
+            <label><input type="checkbox" id="outreach-ai-generated"> AI Generated</label>
+          </div>
+          <button type="submit" class="btn btn-primary">Log Outreach</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/utils.js"></script>
+  <script src="/js/home.js"></script>
+  <script src="/js/contacts.js"></script>
+  <script src="/js/import.js"></script>
+  <script src="/js/settings.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

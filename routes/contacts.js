@@ -1,0 +1,229 @@
+const express = require('express');
+const router = express.Router();
+const { getDb } = require('../db/database');
+
+// GET /api/contacts/export/csv — MUST be before /:id
+router.get('/export/csv', (req, res) => {
+  try {
+    const db = getDb();
+    const contacts = db.prepare('SELECT * FROM contacts ORDER BY last_name, first_name').all();
+
+    const headers = ['first_name', 'last_name', 'email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'zip', 'country', 'organization', 'relationship', 'notes', 'tags'];
+    const csvRows = [headers.join(',')];
+
+    for (const c of contacts) {
+      const row = headers.map(h => {
+        const val = c[h] || '';
+        return `"${String(val).replace(/"/g, '""')}"`;
+      });
+      csvRows.push(row.join(','));
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="contacts.csv"');
+    res.send(csvRows.join('\n'));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/contacts — list all, with search/tag/sort
+router.get('/', (req, res) => {
+  try {
+    const db = getDb();
+    const { search, tag, sort, order } = req.query;
+
+    let sql = `
+      SELECT c.*,
+        (SELECT MAX(o.date) FROM outreaches o WHERE o.contact_id = c.id) as last_outreach_date,
+        (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) as last_donation_date,
+        (SELECT d.amount FROM donations d WHERE d.contact_id = c.id ORDER BY d.date DESC LIMIT 1) as last_donation_amount,
+        (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) as total_donated
+      FROM contacts c
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (search) {
+      sql += ` AND (c.first_name LIKE ? OR c.last_name LIKE ? OR c.email LIKE ? OR c.organization LIKE ? OR c.phone LIKE ?)`;
+      const term = `%${search}%`;
+      params.push(term, term, term, term, term);
+    }
+
+    if (tag) {
+      sql += ` AND (',' || c.tags || ',') LIKE ?`;
+      params.push(`%,${tag},%`);
+    }
+
+    const allowedSorts = ['first_name', 'last_name', 'email', 'created_at', 'last_outreach_date', 'last_donation_date', 'total_donated'];
+    const sortCol = allowedSorts.includes(sort) ? sort : 'last_name';
+    const sortOrder = order === 'desc' ? 'DESC' : 'ASC';
+    sql += ` ORDER BY ${sortCol} ${sortOrder}`;
+
+    const contacts = db.prepare(sql).all(...params);
+    res.json(contacts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/contacts/:id — single contact with history
+router.get('/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
+    if (!contact) return res.status(404).json({ error: 'Contact not found' });
+
+    contact.outreaches = db.prepare('SELECT * FROM outreaches WHERE contact_id = ? ORDER BY date DESC').all(req.params.id);
+    contact.donations = db.prepare('SELECT * FROM donations WHERE contact_id = ? ORDER BY date DESC').all(req.params.id);
+
+    res.json(contact);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/contacts — create
+router.post('/', (req, res) => {
+  try {
+    const db = getDb();
+    const { first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags } = req.body;
+
+    if (!first_name || !last_name) {
+      return res.status(400).json({ error: 'first_name and last_name are required' });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO contacts (first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(first_name, last_name, email || null, phone || null, address_line1 || null, address_line2 || null, city || null, state || null, zip || null, country || 'US', organization || null, relationship || null, notes || null, tags || null);
+
+    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json(contact);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/contacts/:id — update
+router.put('/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const existing = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Contact not found' });
+
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'zip', 'country', 'organization', 'relationship', 'notes', 'tags'];
+    const updates = [];
+    const params = [];
+
+    for (const field of fields) {
+      if (req.body[field] !== undefined) {
+        updates.push(`${field} = ?`);
+        params.push(req.body[field]);
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(req.params.id);
+
+    db.prepare(`UPDATE contacts SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
+    res.json(contact);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/contacts/:id
+router.delete('/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const existing = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Contact not found' });
+
+    db.prepare('DELETE FROM outreaches WHERE contact_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM donations WHERE contact_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM contacts WHERE id = ?').run(req.params.id);
+
+    res.json({ message: 'Contact deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Nested donation routes ---
+
+// GET /api/contacts/:id/donations
+router.get('/:id/donations', (req, res) => {
+  try {
+    const db = getDb();
+    const donations = db.prepare('SELECT * FROM donations WHERE contact_id = ? ORDER BY date DESC').all(req.params.id);
+    res.json(donations);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/contacts/:id/donations
+router.post('/:id/donations', (req, res) => {
+  try {
+    const db = getDb();
+    const contact = db.prepare('SELECT id FROM contacts WHERE id = ?').get(req.params.id);
+    if (!contact) return res.status(404).json({ error: 'Contact not found' });
+
+    const { amount, date, method, recurring, notes } = req.body;
+    if (!amount || !date) return res.status(400).json({ error: 'amount and date are required' });
+
+    const result = db.prepare(
+      'INSERT INTO donations (contact_id, amount, date, method, recurring, notes) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(req.params.id, amount, date, method || null, recurring ? 1 : 0, notes || null);
+
+    const donation = db.prepare('SELECT * FROM donations WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json(donation);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Nested outreach routes ---
+
+// GET /api/contacts/:id/outreaches
+router.get('/:id/outreaches', (req, res) => {
+  try {
+    const db = getDb();
+    const outreaches = db.prepare('SELECT * FROM outreaches WHERE contact_id = ? ORDER BY date DESC').all(req.params.id);
+    res.json(outreaches);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/contacts/:id/outreaches
+router.post('/:id/outreaches', (req, res) => {
+  try {
+    const db = getDb();
+    const contact = db.prepare('SELECT id FROM contacts WHERE id = ?').get(req.params.id);
+    if (!contact) return res.status(404).json({ error: 'Contact not found' });
+
+    const { mode, direction, subject, content, date, ai_generated, status } = req.body;
+    if (!mode) return res.status(400).json({ error: 'mode is required' });
+
+    const result = db.prepare(
+      'INSERT INTO outreaches (contact_id, mode, direction, subject, content, date, ai_generated, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(
+      req.params.id, mode, direction || 'outgoing', subject || null, content || null,
+      date || new Date().toISOString(), ai_generated ? 1 : 0, status || 'completed'
+    );
+
+    const outreach = db.prepare('SELECT * FROM outreaches WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json(outreach);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
