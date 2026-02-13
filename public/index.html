@@ -45,11 +45,9 @@
         <h1>Who should you reach out to?</h1>
         <p class="subtitle">Ask in plain English and get AI-powered outreach recommendations</p>
 
-        <div class="prompt-chips">
-          <button class="chip" data-prompt="Who haven't I contacted in 3+ months?">Who haven't I contacted in 3+ months?</button>
-          <button class="chip" data-prompt="Lapsed donors from the past year">Lapsed donors from the past year</button>
-          <button class="chip" data-prompt="New contacts I haven't reached out to yet">New contacts I haven't reached out to yet</button>
-          <button class="chip" data-prompt="Top donors I should thank">Top donors I should thank</button>
+        <div class="daily-prompt">
+          <p class="daily-prompt-label">Recommended outreach for today</p>
+          <button class="chip" id="daily-chip"></button>
         </div>
 
         <textarea id="ai-prompt" placeholder='e.g. "Who used to donate monthly but stopped in the last 6 months?"' rows="4"></textarea>

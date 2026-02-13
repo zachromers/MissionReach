@@ -46,11 +46,40 @@ document.querySelectorAll('.stat-card').forEach(card => {
   });
 });
 
-// Prompt chips
-document.querySelectorAll('.chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    document.getElementById('ai-prompt').value = chip.dataset.prompt;
-  });
+// Daily rotating prompt
+const DAILY_PROMPTS = [
+  "Who haven't I contacted in 3+ months?",
+  "Lapsed donors from the past year",
+  "New contacts I haven't reached out to yet",
+  "Top donors I should thank",
+  "Contacts who donated once but never again",
+  "Who should I send a birthday or holiday greeting to?",
+  "Contacts I've never had a phone call with",
+  "People who gave last month that I should follow up with",
+  "Supporters who may be interested in a newsletter update",
+  "Contacts in my area I could visit in person",
+  "Who has been the most consistent donor this year?",
+  "People I only reached out to once and never followed up",
+  "Contacts who used to give monthly but stopped",
+  "New contacts added in the last 30 days I should welcome",
+  "Long-time supporters I haven't thanked recently",
+  "Who might be open to increasing their giving?",
+  "Contacts I've only emailed but never called",
+  "Donors from last year who haven't given yet this year",
+  "People I should reconnect with before the end of the quarter",
+];
+
+function getDailyPrompt() {
+  const today = new Date();
+  const dayIndex = Math.floor(today.getTime() / (1000 * 60 * 60 * 24));
+  return DAILY_PROMPTS[dayIndex % DAILY_PROMPTS.length];
+}
+
+const dailyChip = document.getElementById('daily-chip');
+const dailyPrompt = getDailyPrompt();
+dailyChip.textContent = dailyPrompt;
+dailyChip.addEventListener('click', () => {
+  document.getElementById('ai-prompt').value = dailyPrompt;
 });
 
 // Generate button

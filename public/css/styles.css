@@ -249,6 +249,19 @@ input:focus, textarea:focus, select:focus {
   margin-bottom: 16px;
 }
 
+.daily-prompt {
+  margin-bottom: 16px;
+}
+
+.daily-prompt-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-400);
+  margin-bottom: 8px;
+}
+
 .chip {
   background: var(--blue-50);
   border: 1px solid var(--blue-200);
