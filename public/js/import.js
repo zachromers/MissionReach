@@ -82,6 +82,7 @@ const DB_FIELDS = [
   { value: 'last_name', label: 'last_name' },
   { value: 'email', label: 'email' },
   { value: 'phone', label: 'phone' },
+  { value: 'full_address', label: 'full_address (split by comma)' },
   { value: 'address_line1', label: 'address_line1' },
   { value: 'address_line2', label: 'address_line2' },
   { value: 'city', label: 'city' },
