@@ -18,6 +18,8 @@ router.get('/', (req, res) => {
         settings[row.key] = row.value;
       }
     }
+    // Let the frontend know if the API key is provided via environment variable
+    settings.api_key_from_env = !!process.env.ANTHROPIC_API_KEY;
     res.json(settings);
   } catch (err) {
     res.status(500).json({ error: err.message });

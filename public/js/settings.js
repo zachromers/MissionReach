@@ -7,10 +7,16 @@ async function loadSettings() {
     document.getElementById('setting-context').value = settings.missionary_context || '';
     document.getElementById('setting-stale-days').value = settings.default_stale_days || '90';
 
-    // Show masked key
-    const apiKeyInput = document.getElementById('setting-apikey');
-    apiKeyInput.value = '';
-    apiKeyInput.placeholder = settings.anthropic_api_key && settings.anthropic_api_key !== '' ? settings.anthropic_api_key : 'sk-ant-...';
+    // Hide API key field if provided via environment variable
+    const apiKeyGroup = document.getElementById('setting-apikey').closest('.form-group');
+    if (settings.api_key_from_env) {
+      apiKeyGroup.innerHTML = '<label>Anthropic API Key</label><p style="font-size:14px;color:var(--gray-500);margin-top:4px;">API key is configured on the server via environment variable.</p>';
+    } else {
+      // Show masked key
+      const apiKeyInput = document.getElementById('setting-apikey');
+      apiKeyInput.value = '';
+      apiKeyInput.placeholder = settings.anthropic_api_key && settings.anthropic_api_key !== '' ? settings.anthropic_api_key : 'sk-ant-...';
+    }
   } catch (err) {
     console.error('Error loading settings:', err);
   }

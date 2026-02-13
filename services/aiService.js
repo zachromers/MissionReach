@@ -57,7 +57,7 @@ function getContactSummaries() {
 
 async function processPrompt(userPrompt) {
   const settings = getSettings();
-  const apiKey = settings.anthropic_api_key;
+  const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
 
   if (!apiKey) {
     throw new Error('Please configure your Anthropic API key in Settings.');
