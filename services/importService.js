@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const COLUMN_MAP_ALIASES = {
+  full_name: ['full name', 'full_name', 'name', 'contact name', 'contact'],
   first_name: ['first_name', 'firstname', 'first name', 'fname', 'first'],
   last_name: ['last_name', 'lastname', 'last name', 'lname', 'last', 'surname'],
   email: ['email', 'e-mail', 'email address', 'emailaddress'],
@@ -55,6 +56,30 @@ function autoDetectMapping(headers) {
     }
   }
   return mapping;
+}
+
+/**
+ * Parse a full name string (space-delimited) into first and last name.
+ * The first word becomes first_name, everything after becomes last_name.
+ *
+ * Examples:
+ *   "John Smith"         → { first_name: "John", last_name: "Smith" }
+ *   "John Van Der Berg"  → { first_name: "John", last_name: "Van Der Berg" }
+ *   "John"               → { first_name: "John" }
+ */
+function parseFullName(fullName) {
+  const trimmed = fullName.trim();
+  if (!trimmed) return {};
+
+  const spaceIdx = trimmed.indexOf(' ');
+  if (spaceIdx === -1) {
+    return { first_name: trimmed };
+  }
+
+  return {
+    first_name: trimmed.substring(0, spaceIdx),
+    last_name: trimmed.substring(spaceIdx + 1).trim(),
+  };
 }
 
 /**
@@ -121,10 +146,14 @@ function applyMapping(rows, mapping) {
   const results = { imported: 0, skipped: 0, errors: [] };
   const contacts = [];
 
-  // Track which address fields are explicitly mapped so full_address
-  // doesn't overwrite them
+  // Track which fields are explicitly mapped so full_name/full_address
+  // don't overwrite them
+  const explicitNameFields = new Set();
   const explicitAddressFields = new Set();
   for (const targetField of Object.values(mapping)) {
+    if (['first_name', 'last_name'].includes(targetField)) {
+      explicitNameFields.add(targetField);
+    }
     if (['address_line1', 'address_line2', 'city', 'state', 'zip', 'country'].includes(targetField)) {
       explicitAddressFields.add(targetField);
     }
@@ -139,7 +168,17 @@ function applyMapping(rows, mapping) {
 
       const value = row[sourceCol] != null ? String(row[sourceCol]).trim() : '';
 
-      if (targetField === 'full_address') {
+      if (targetField === 'full_name') {
+        // Parse the full name and fill in fields not explicitly mapped
+        if (value) {
+          const parsed = parseFullName(value);
+          for (const [field, val] of Object.entries(parsed)) {
+            if (!explicitNameFields.has(field)) {
+              contact[field] = val;
+            }
+          }
+        }
+      } else if (targetField === 'full_address') {
         // Parse the full address and fill in fields not explicitly mapped
         if (value) {
           const parsed = parseFullAddress(value);
@@ -168,4 +207,4 @@ function applyMapping(rows, mapping) {
   return results;
 }
 
-module.exports = { parseFile, autoDetectMapping, applyMapping, parseFullAddress };
+module.exports = { parseFile, autoDetectMapping, applyMapping, parseFullName, parseFullAddress };

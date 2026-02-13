@@ -78,6 +78,7 @@ uploadBtn.addEventListener('click', async () => {
 
 const DB_FIELDS = [
   { value: '__skip__', label: '-- skip this column --' },
+  { value: 'full_name', label: 'full_name (split by space)' },
   { value: 'first_name', label: 'first_name' },
   { value: 'last_name', label: 'last_name' },
   { value: 'email', label: 'email' },
