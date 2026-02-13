@@ -153,9 +153,29 @@ document.addEventListener('input', (e) => {
 document.addEventListener('change', (e) => {
   if (!e.target.closest('#page-search') || !e.target.classList.contains('filter-input')) return;
   if (e.target.type === 'date' || e.target.type === 'number') {
+    updateDateHints();
     loadSearchResults();
   }
 });
+
+function updateDateHints() {
+  const pairs = [
+    { from: 'outreach_from', to: 'outreach_to', hint: 'hint-outreach', label: 'Last contact' },
+    { from: 'donation_from', to: 'donation_to', hint: 'hint-donation', label: 'Last donation' },
+  ];
+  for (const { from, to, hint, label } of pairs) {
+    const fromVal = document.querySelector(`.filter-input[data-filter="${from}"]`).value;
+    const toVal = document.querySelector(`.filter-input[data-filter="${to}"]`).value;
+    const hintEl = document.getElementById(hint);
+    if (fromVal && !toVal) {
+      hintEl.textContent = `${label} after ${fromVal}`;
+    } else if (!fromVal && toVal) {
+      hintEl.textContent = `${label} before ${toVal}`;
+    } else {
+      hintEl.textContent = '';
+    }
+  }
+}
 
 // Clear Filters
 document.addEventListener('click', (e) => {
@@ -170,6 +190,7 @@ document.addEventListener('click', (e) => {
     h.classList.remove('sort-asc', 'sort-desc');
   });
   updateSearchFilterBanner();
+  updateDateHints();
   loadSearchResults();
 });
 

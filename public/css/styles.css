@@ -848,6 +848,16 @@ input:focus, textarea:focus, select:focus {
   gap: 2px;
 }
 
+.filter-date-hint {
+  font-size: 10px;
+  color: var(--blue-600);
+  white-space: nowrap;
+}
+
+.filter-date-hint:empty {
+  display: none;
+}
+
 .search-table tbody td {
   padding: 10px 12px;
   font-size: 13px;
