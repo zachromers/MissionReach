@@ -192,6 +192,26 @@
           </div>
           <button id="btn-import-execute" class="btn btn-primary">Import Contacts</button>
           <button id="btn-import-back" class="btn">Back</button>
+
+          <div class="import-preview-section">
+            <h3>Import Preview</h3>
+            <p class="import-preview-hint">This is how your contacts will appear after import.</p>
+            <div class="import-preview-table-wrap">
+              <table class="contacts-table import-preview-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Address</th>
+                    <th>Organization</th>
+                    <th>Tags</th>
+                  </tr>
+                </thead>
+                <tbody id="import-preview-tbody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
         <div id="import-step3" class="hidden">

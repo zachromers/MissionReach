@@ -5,6 +5,7 @@ let importState = {
   headers: [],
   mapping: {},
   totalRows: 0,
+  previewRows: [],
 };
 
 const dropZone = document.getElementById('drop-zone');
@@ -63,11 +64,14 @@ uploadBtn.addEventListener('click', async () => {
     importState.headers = data.headers;
     importState.mapping = data.mapping;
     importState.totalRows = data.totalRows;
+    importState.previewRows = data.previewRows;
 
     renderPreview(data);
+    renderImportPreview();
 
     document.getElementById('import-step1').classList.add('hidden');
     document.getElementById('import-step2').classList.remove('hidden');
+    document.querySelector('.import-section').classList.add('wide');
   } catch (err) {
     alert('Error: ' + err.message);
   } finally {
@@ -131,6 +135,7 @@ function renderPreview(data) {
     sel.addEventListener('change', () => {
       importState.mapping[sel.dataset.header] = sel.value;
       updateImportSummary();
+      renderImportPreview();
     });
   });
 }
@@ -159,6 +164,7 @@ document.getElementById('btn-import-execute').addEventListener('click', async ()
 
     document.getElementById('import-step2').classList.add('hidden');
     document.getElementById('import-step3').classList.remove('hidden');
+    document.querySelector('.import-section').classList.remove('wide');
 
     let html = `<p style="margin-bottom:12px;">Successfully imported <strong>${data.imported}</strong> contacts. <strong>${data.skipped}</strong> rows skipped.</p>`;
     if (data.errors && data.errors.length > 0) {
@@ -181,6 +187,7 @@ document.getElementById('btn-import-execute').addEventListener('click', async ()
 document.getElementById('btn-import-back').addEventListener('click', () => {
   document.getElementById('import-step2').classList.add('hidden');
   document.getElementById('import-step1').classList.remove('hidden');
+  document.querySelector('.import-section').classList.remove('wide');
 });
 
 // Go to contacts
@@ -189,7 +196,137 @@ document.getElementById('btn-goto-contacts').addEventListener('click', () => {
   // Reset import UI
   document.getElementById('import-step3').classList.add('hidden');
   document.getElementById('import-step1').classList.remove('hidden');
+  document.querySelector('.import-section').classList.remove('wide');
   dropZone.querySelector('p').textContent = 'Drag & drop a file here, or click to select';
   uploadBtn.disabled = true;
   fileInput.value = '';
 });
+
+// --- Client-side parsing for live preview ---
+
+function clientParseFullName(fullName) {
+  const trimmed = (fullName || '').trim();
+  if (!trimmed) return {};
+  const spaceIdx = trimmed.indexOf(' ');
+  if (spaceIdx === -1) return { first_name: trimmed };
+  return {
+    first_name: trimmed.substring(0, spaceIdx),
+    last_name: trimmed.substring(spaceIdx + 1).trim(),
+  };
+}
+
+function clientParseFullAddress(fullAddress) {
+  const parts = (fullAddress || '').split(',').map(p => p.trim()).filter(p => p);
+  if (parts.length === 0) return {};
+
+  const result = {};
+  let idx = parts.length - 1;
+
+  const countryNames = ['united states', 'usa', 'us', 'canada', 'uk', 'united kingdom', 'australia', 'mexico'];
+  if (idx >= 2 && (countryNames.includes(parts[idx].toLowerCase()) || /^[a-zA-Z]{2,3}$/.test(parts[idx]))) {
+    result.country = parts[idx];
+    idx--;
+  }
+
+  if (idx >= 2 && /^\d{5}(-\d{4})?$/.test(parts[idx])) {
+    result.zip = parts[idx];
+    idx--;
+  }
+
+  if (idx >= 1) {
+    const m = parts[idx].match(/^([a-zA-Z]{2})\s+(\d{5}(-\d{4})?)$/);
+    if (m) {
+      result.state = m[1];
+      if (!result.zip) result.zip = m[2];
+      idx--;
+    } else if (/^[a-zA-Z]{2}$/.test(parts[idx])) {
+      result.state = parts[idx];
+      idx--;
+    }
+  }
+
+  if (idx >= 1) {
+    result.city = parts[idx];
+    idx--;
+  }
+
+  if (idx >= 0) {
+    result.address_line1 = parts[0];
+    if (idx >= 1) result.address_line2 = parts.slice(1, idx + 1).join(', ');
+  }
+
+  return result;
+}
+
+function applyMappingToRow(row) {
+  const mapping = importState.mapping;
+  const contact = {};
+
+  const explicitName = new Set();
+  const explicitAddr = new Set();
+  for (const f of Object.values(mapping)) {
+    if (['first_name', 'last_name'].includes(f)) explicitName.add(f);
+    if (['address_line1', 'address_line2', 'city', 'state', 'zip', 'country'].includes(f)) explicitAddr.add(f);
+  }
+
+  for (const [sourceCol, targetField] of Object.entries(mapping)) {
+    if (targetField === '__skip__') continue;
+    const value = row[sourceCol] != null ? String(row[sourceCol]).trim() : '';
+
+    if (targetField === 'full_name') {
+      if (value) {
+        const parsed = clientParseFullName(value);
+        for (const [field, val] of Object.entries(parsed)) {
+          if (!explicitName.has(field)) contact[field] = val;
+        }
+      }
+    } else if (targetField === 'full_address') {
+      if (value) {
+        const parsed = clientParseFullAddress(value);
+        for (const [field, val] of Object.entries(parsed)) {
+          if (!explicitAddr.has(field)) contact[field] = val;
+        }
+      }
+    } else {
+      contact[targetField] = value;
+    }
+  }
+
+  return contact;
+}
+
+function formatAddress(contact) {
+  const parts = [contact.address_line1, contact.address_line2].filter(Boolean);
+  const cityStateZip = [
+    contact.city,
+    [contact.state, contact.zip].filter(Boolean).join(' '),
+  ].filter(Boolean).join(', ');
+  if (cityStateZip) parts.push(cityStateZip);
+  if (contact.country && contact.country !== 'US') parts.push(contact.country);
+  return parts.join(', ');
+}
+
+function renderImportPreview() {
+  const tbody = document.getElementById('import-preview-tbody');
+  const rows = importState.previewRows;
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);">No preview data available.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  for (const row of rows) {
+    const c = applyMappingToRow(row);
+    const name = [c.first_name, c.last_name].filter(Boolean).join(' ');
+    html += `<tr>
+      <td><strong>${escapeHtml(name)}</strong></td>
+      <td>${escapeHtml(c.email || '')}</td>
+      <td>${escapeHtml(c.phone || '')}</td>
+      <td>${escapeHtml(formatAddress(c))}</td>
+      <td>${escapeHtml(c.organization || '')}</td>
+      <td>${renderTags(c.tags || '')}</td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+}
