@@ -31,6 +31,7 @@ dropZone.addEventListener('drop', (e) => {
   if (e.dataTransfer.files.length) {
     fileInput.files = e.dataTransfer.files;
     handleFileSelected();
+    uploadBtn.click();
   }
 });
 
