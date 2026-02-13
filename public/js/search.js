@@ -167,9 +167,11 @@ function updateDateHints() {
     const fromVal = document.querySelector(`.filter-input[data-filter="${from}"]`).value;
     const toVal = document.querySelector(`.filter-input[data-filter="${to}"]`).value;
     const hintEl = document.getElementById(hint);
-    if (fromVal && !toVal) {
+    if (fromVal && toVal) {
+      hintEl.textContent = `${label} between ${fromVal} and ${toVal}`;
+    } else if (fromVal) {
       hintEl.textContent = `${label} after ${fromVal}`;
-    } else if (!fromVal && toVal) {
+    } else if (toVal) {
       hintEl.textContent = `${label} before ${toVal}`;
     } else {
       hintEl.textContent = '';
