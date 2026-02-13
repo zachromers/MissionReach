@@ -184,6 +184,29 @@ function updateDateHints() {
       hintEl.classList.remove('error');
     }
   }
+
+  // Total donated range hint
+  const minVal = document.querySelector(`.filter-input[data-filter="total_donated_min"]`).value;
+  const maxVal = document.querySelector(`.filter-input[data-filter="total_donated_max"]`).value;
+  const donatedHint = document.getElementById('hint-donated');
+  const minNum = minVal ? Number(minVal) : null;
+  const maxNum = maxVal ? Number(maxVal) : null;
+  if (minNum != null && maxNum != null && minNum > maxNum) {
+    donatedHint.textContent = `Min must be less than max`;
+    donatedHint.classList.add('error');
+  } else if (minNum != null && maxNum != null) {
+    donatedHint.textContent = `Total donated between $${minNum.toFixed(2)} and $${maxNum.toFixed(2)}`;
+    donatedHint.classList.remove('error');
+  } else if (minNum != null) {
+    donatedHint.textContent = `Total donated at least $${minNum.toFixed(2)}`;
+    donatedHint.classList.remove('error');
+  } else if (maxNum != null) {
+    donatedHint.textContent = `Total donated at most $${maxNum.toFixed(2)}`;
+    donatedHint.classList.remove('error');
+  } else {
+    donatedHint.textContent = '';
+    donatedHint.classList.remove('error');
+  }
 }
 
 // Clear Filters
