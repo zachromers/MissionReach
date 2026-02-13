@@ -82,6 +82,14 @@ dailyChip.addEventListener('click', () => {
   document.getElementById('ai-prompt').value = dailyPrompt;
 });
 
+// Enter key in prompt textarea triggers generation
+document.getElementById('ai-prompt').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    document.getElementById('btn-generate').click();
+  }
+});
+
 // Generate button
 document.getElementById('btn-generate').addEventListener('click', async () => {
   const prompt = document.getElementById('ai-prompt').value.trim();
