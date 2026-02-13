@@ -4,6 +4,8 @@ function initHome() {
   loadDashboardStats();
 }
 
+let cachedStaleDays = 90;
+
 async function loadDashboardStats() {
   try {
     const stats = await api('api/ai/stats');
@@ -11,8 +13,38 @@ async function loadDashboardStats() {
     document.getElementById('stat-stale-contacts').textContent = stats.staleContacts;
     document.getElementById('stat-ytd-donations').textContent = formatCurrency(stats.ytdDonations);
     document.getElementById('stat-outreaches-month').textContent = stats.outreachesThisMonth;
+    if (stats.staleDays) cachedStaleDays = stats.staleDays;
   } catch {}
 }
+
+function navigateToSearch(extraParams) {
+  // Switch to Search tab
+  const searchTab = document.querySelector('.nav-tab[data-tab="search"]');
+  searchTab.click();
+  // initSearch is called by the tab click handler, but we need to re-call with params
+  initSearch(extraParams);
+}
+
+// Stat card clicks
+document.querySelectorAll('.stat-card').forEach(card => {
+  card.style.cursor = 'pointer';
+  card.addEventListener('click', () => {
+    const valueEl = card.querySelector('.stat-value');
+    const id = valueEl ? valueEl.id : '';
+    if (id === 'stat-total-contacts') {
+      navigateToSearch();
+    } else if (id === 'stat-stale-contacts') {
+      navigateToSearch({ stale_days: String(cachedStaleDays) });
+    } else if (id === 'stat-ytd-donations') {
+      const yearStart = new Date().getFullYear() + '-01-01';
+      navigateToSearch({ donated_since: yearStart });
+    } else if (id === 'stat-outreaches-month') {
+      const now = new Date();
+      const monthStart = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
+      navigateToSearch({ contacted_since: monthStart });
+    }
+  });
+});
 
 // Prompt chips
 document.querySelectorAll('.chip').forEach(chip => {

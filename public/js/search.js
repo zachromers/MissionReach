@@ -4,9 +4,62 @@ let lastSearchResults = [];
 let searchSort = 'last_name';
 let searchOrder = 'asc';
 let searchDebounceTimer = null;
+let searchExtraParams = {};
 
-function initSearch() {
+function initSearch(extraParams) {
+  // Clear any previous extra params and filter inputs
+  searchExtraParams = {};
+  document.querySelectorAll('#page-search .filter-input').forEach(input => {
+    input.value = '';
+  });
+  searchSort = 'last_name';
+  searchOrder = 'asc';
+  document.querySelectorAll('#page-search .search-col-headers th').forEach(h => {
+    h.classList.remove('sort-asc', 'sort-desc');
+  });
+
+  if (extraParams && typeof extraParams === 'object') {
+    searchExtraParams = extraParams;
+    // Pre-fill visible filter inputs where the key matches a data-filter attribute
+    for (const [key, val] of Object.entries(extraParams)) {
+      const input = document.querySelector(`#page-search .filter-input[data-filter="${key}"]`);
+      if (input) {
+        input.value = val;
+        delete searchExtraParams[key]; // handled by the input now
+      }
+    }
+  }
+
+  updateSearchFilterBanner();
   loadSearchResults();
+}
+
+function updateSearchFilterBanner() {
+  let banner = document.getElementById('search-filter-banner');
+  const labels = {
+    stale_days: 'Stale Contacts',
+    donated_since: 'Donors Since',
+    contacted_since: 'Contacted Since',
+  };
+  const active = Object.keys(searchExtraParams).filter(k => searchExtraParams[k]);
+  if (active.length === 0) {
+    if (banner) banner.remove();
+    return;
+  }
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'search-filter-banner';
+    banner.className = 'search-filter-banner';
+    const header = document.querySelector('#page-search .search-header');
+    header.after(banner);
+  }
+  const desc = active.map(k => labels[k] || k).join(', ');
+  banner.innerHTML = `Filtered: <strong>${escapeHtml(desc)}</strong> <button class="btn btn-sm" id="btn-search-clear-special" style="margin-left:8px;">Remove</button>`;
+  document.getElementById('btn-search-clear-special').addEventListener('click', () => {
+    searchExtraParams = {};
+    updateSearchFilterBanner();
+    loadSearchResults();
+  });
 }
 
 function gatherSearchFilters() {
@@ -16,6 +69,10 @@ function gatherSearchFilters() {
     const val = input.value.trim();
     if (key && val) params.set(key, val);
   });
+  // Append any extra params from stat card navigation
+  for (const [key, val] of Object.entries(searchExtraParams)) {
+    if (val) params.set(key, val);
+  }
   params.set('sort', searchSort);
   params.set('order', searchOrder);
   return params;
@@ -107,9 +164,11 @@ document.addEventListener('click', (e) => {
   });
   searchSort = 'last_name';
   searchOrder = 'asc';
+  searchExtraParams = {};
   document.querySelectorAll('#page-search .search-col-headers th').forEach(h => {
     h.classList.remove('sort-asc', 'sort-desc');
   });
+  updateSearchFilterBanner();
   loadSearchResults();
 });
 

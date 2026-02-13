@@ -202,6 +202,14 @@ input:focus, textarea:focus, select:focus {
   padding: 20px;
   text-align: center;
   box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.stat-card:hover {
+  border-color: var(--blue-500);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .stat-value {
@@ -800,6 +808,18 @@ input:focus, textarea:focus, select:focus {
 .search-table tbody tr:hover {
   background: var(--blue-50);
   cursor: pointer;
+}
+
+.search-filter-banner {
+  background: var(--blue-50);
+  border: 1px solid var(--blue-200);
+  color: var(--blue-700);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
 }
 
 /* Utility */

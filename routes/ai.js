@@ -54,6 +54,7 @@ router.get('/stats', (req, res) => {
       staleContacts,
       ytdDonations,
       outreachesThisMonth,
+      staleDays,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

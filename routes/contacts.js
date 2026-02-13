@@ -10,7 +10,8 @@ function buildContactQuery(query) {
     outreach_from, outreach_to,
     donation_from, donation_to,
     total_donated_min, total_donated_max,
-    has_email, has_phone } = query;
+    has_email, has_phone,
+    stale_days, donated_since, contacted_since } = query;
 
   let sql = `
     SELECT c.*,
@@ -75,6 +76,27 @@ function buildContactQuery(query) {
     sql += ` AND c.phone IS NOT NULL AND c.phone != ''`;
   } else if (has_phone === '0') {
     sql += ` AND (c.phone IS NULL OR c.phone = '')`;
+  }
+
+  // Stale contacts: no outreach in the last N days (or never contacted)
+  if (stale_days) {
+    sql += ` AND NOT EXISTS (
+      SELECT 1 FROM outreaches o WHERE o.contact_id = c.id
+      AND o.date >= datetime('now', '-' || ? || ' days')
+    )`;
+    params.push(Number(stale_days));
+  }
+
+  // Donated since a given date (any donation, not just the latest)
+  if (donated_since) {
+    sql += ` AND EXISTS (SELECT 1 FROM donations d WHERE d.contact_id = c.id AND d.date >= ?)`;
+    params.push(donated_since);
+  }
+
+  // Contacted since a given date (any outreach)
+  if (contacted_since) {
+    sql += ` AND EXISTS (SELECT 1 FROM outreaches o WHERE o.contact_id = c.id AND o.date >= ?)`;
+    params.push(contacted_since);
   }
 
   // Date range filters (on computed subqueries via HAVING-style re-filter)
