@@ -2,34 +2,64 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --blue-50: #eff6ff;
-  --blue-100: #dbeafe;
-  --blue-200: #bfdbfe;
-  --blue-500: #3b82f6;
-  --blue-600: #2563eb;
-  --blue-700: #1d4ed8;
-  --blue-800: #1e40af;
-  --gray-50: #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-400: #9ca3af;
-  --gray-500: #6b7280;
-  --gray-600: #4b5563;
-  --gray-700: #374151;
-  --gray-800: #1f2937;
-  --gray-900: #111827;
+  --blue-50: #eef2ff;
+  --blue-100: #e0e7ff;
+  --blue-200: #c7d2fe;
+  --blue-500: #6366f1;
+  --blue-600: #4f46e5;
+  --blue-700: #4338ca;
+  --blue-800: #3730a3;
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;
   --green-500: #22c55e;
   --red-500: #ef4444;
   --red-100: #fee2e2;
   --white: #ffffff;
-  --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
-  --radius: 8px;
+  --shadow: 0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04);
+  --shadow-md: 0 4px 6px rgba(15,23,42,0.08), 0 2px 4px rgba(15,23,42,0.04);
+  --shadow-lg: 0 10px 15px rgba(15,23,42,0.08), 0 4px 6px rgba(15,23,42,0.04);
+  --radius: 10px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: var(--blue-200);
+  color: var(--gray-900);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--gray-100);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background: var(--gray-50);
   color: var(--gray-800);
   line-height: 1.6;
@@ -40,11 +70,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--blue-700);
+  background: var(--gray-900);
   color: var(--white);
   padding: 0 24px;
   height: 56px;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -64,22 +94,23 @@ body {
 .nav-tab {
   background: transparent;
   border: none;
-  color: rgba(255,255,255,0.75);
+  color: rgba(255,255,255,0.6);
   font-size: 14px;
   font-weight: 500;
   padding: 8px 16px;
   cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.15s;
+  border-radius: 8px;
+  transition: all 0.2s;
+  font-family: inherit;
 }
 
 .nav-tab:hover {
-  background: rgba(255,255,255,0.1);
-  color: var(--white);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.95);
 }
 
 .nav-tab.active {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.15);
   color: var(--white);
 }
 
@@ -104,14 +135,15 @@ body {
   align-items: center;
   gap: 6px;
   padding: 10px 20px;
-  border: 1px solid var(--gray-300);
+  border: 1.5px solid var(--gray-300);
   background: var(--white);
   color: var(--gray-700);
   font-size: 14px;
   font-weight: 500;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
+  font-family: inherit;
 }
 
 .btn:hover { background: var(--gray-50); border-color: var(--gray-400); }
@@ -120,9 +152,15 @@ body {
   background: var(--blue-600);
   color: var(--white);
   border-color: var(--blue-600);
+  box-shadow: 0 2px 4px rgba(79,70,229,0.25);
 }
 
-.btn-primary:hover { background: var(--blue-700); border-color: var(--blue-700); }
+.btn-primary:hover {
+  background: var(--blue-700);
+  border-color: var(--blue-700);
+  box-shadow: 0 4px 8px rgba(79,70,229,0.3);
+  transform: translateY(-1px);
+}
 
 .btn-danger {
   background: var(--red-500);
@@ -165,19 +203,24 @@ textarea,
 select {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--gray-300);
-  border-radius: 6px;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
   color: var(--gray-800);
   background: var(--white);
-  transition: border-color 0.15s;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--gray-400);
 }
 
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--blue-500);
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
 }
 
 .input-with-toggle {
@@ -198,30 +241,34 @@ input:focus, textarea:focus, select:focus {
 .stat-card {
   background: var(--white);
   border: 1px solid var(--gray-200);
-  border-radius: var(--radius);
+  border-radius: 14px;
   padding: 20px;
   text-align: center;
   box-shadow: var(--shadow);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
 
 .stat-card:hover {
   border-color: var(--blue-500);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, var(--white) 0%, var(--blue-50) 100%);
 }
 
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: var(--blue-700);
+  color: var(--blue-600);
 }
 
 .stat-label {
-  font-size: 13px;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--gray-500);
   margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Prompt Section */
@@ -234,6 +281,7 @@ input:focus, textarea:focus, select:focus {
   font-weight: 700;
   color: var(--gray-900);
   margin-bottom: 8px;
+  letter-spacing: -0.3px;
 }
 
 .subtitle {
@@ -270,7 +318,8 @@ input:focus, textarea:focus, select:focus {
   border-radius: 20px;
   font-size: 13px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
+  font-family: inherit;
 }
 
 .chip:hover {
@@ -319,10 +368,15 @@ input:focus, textarea:focus, select:focus {
 .result-card {
   background: var(--white);
   border: 1px solid var(--gray-200);
-  border-radius: var(--radius);
+  border-radius: 14px;
   padding: 20px;
   margin-bottom: 16px;
   box-shadow: var(--shadow);
+  transition: box-shadow 0.2s;
+}
+
+.result-card:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .result-card-header {
@@ -350,9 +404,10 @@ input:focus, textarea:focus, select:focus {
   color: var(--gray-600);
   font-style: italic;
   margin-bottom: 12px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   background: var(--blue-50);
-  border-radius: 6px;
+  border-radius: 8px;
+  border-left: 3px solid var(--blue-500);
 }
 
 .draft-section {
@@ -370,7 +425,7 @@ input:focus, textarea:focus, select:focus {
 .draft-content {
   background: var(--gray-50);
   border: 1px solid var(--gray-200);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 16px;
   margin-top: 8px;
   font-size: 14px;
@@ -387,9 +442,11 @@ input:focus, textarea:focus, select:focus {
   background: var(--white);
   border: 1px solid var(--gray-300);
   padding: 4px 10px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
 }
 
 .copy-btn:hover { background: var(--gray-100); }
@@ -428,6 +485,17 @@ input:focus, textarea:focus, select:focus {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 #ai-loading {
   text-align: center;
   padding: 32px;
@@ -460,11 +528,12 @@ input:focus, textarea:focus, select:focus {
 .tag-filter {
   padding: 4px 12px;
   border-radius: 16px;
-  border: 1px solid var(--gray-300);
+  border: 1.5px solid var(--gray-300);
   background: var(--white);
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
+  font-family: inherit;
 }
 
 .tag-filter:hover, .tag-filter.active {
@@ -487,7 +556,8 @@ input:focus, textarea:focus, select:focus {
 
 .contacts-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   background: var(--white);
   border-radius: var(--radius);
   overflow: hidden;
@@ -498,12 +568,14 @@ input:focus, textarea:focus, select:focus {
   background: var(--gray-50);
   text-align: left;
   padding: 12px 16px;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--gray-600);
-  border-bottom: 1px solid var(--gray-200);
+  color: var(--gray-500);
+  border-bottom: 2px solid var(--gray-200);
   cursor: pointer;
   user-select: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .contacts-table th:hover { color: var(--blue-600); }
@@ -514,7 +586,7 @@ input:focus, textarea:focus, select:focus {
   border-bottom: 1px solid var(--gray-100);
 }
 
-.contacts-table tr:hover { background: var(--blue-50); cursor: pointer; }
+.contacts-table tr:hover { background: var(--blue-50); cursor: pointer; transition: background 0.15s; }
 
 .tag-pill {
   display: inline-block;
@@ -539,11 +611,11 @@ input:focus, textarea:focus, select:focus {
 
 .drop-zone {
   border: 2px dashed var(--gray-300);
-  border-radius: var(--radius);
+  border-radius: 14px;
   padding: 48px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
   margin-bottom: 16px;
   background: var(--white);
 }
@@ -560,7 +632,8 @@ input:focus, textarea:focus, select:focus {
 
 .preview-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   background: var(--white);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -630,7 +703,7 @@ input:focus, textarea:focus, select:focus {
   max-width: 600px;
   margin: 0 auto;
   background: var(--white);
-  border-radius: var(--radius);
+  border-radius: 14px;
   padding: 32px;
   box-shadow: var(--shadow);
 }
@@ -643,7 +716,7 @@ input:focus, textarea:focus, select:focus {
 #settings-message {
   margin-top: 12px;
   padding: 10px 16px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
 }
 
@@ -673,18 +746,20 @@ input:focus, textarea:focus, select:focus {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(15,23,42,0.45);
+  backdrop-filter: blur(4px);
 }
 
 .modal-panel {
   position: relative;
   background: var(--white);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-md);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
   width: 90%;
   max-width: 800px;
   max-height: 85vh;
   overflow-y: auto;
+  animation: modalIn 0.2s ease-out;
 }
 
 .modal-sm { max-width: 500px; }
@@ -699,6 +774,7 @@ input:focus, textarea:focus, select:focus {
   top: 0;
   background: var(--white);
   z-index: 1;
+  border-radius: 14px 14px 0 0;
 }
 
 .modal-header h2 { font-size: 18px; }
@@ -709,10 +785,15 @@ input:focus, textarea:focus, select:focus {
   font-size: 24px;
   cursor: pointer;
   color: var(--gray-400);
-  padding: 0 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s;
 }
 
-.modal-close:hover { color: var(--gray-700); }
+.modal-close:hover {
+  color: var(--gray-700);
+  background: var(--gray-100);
+}
 
 .modal-body { padding: 24px; }
 
@@ -757,7 +838,8 @@ input:focus, textarea:focus, select:focus {
 
 .donation-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 14px;
 }
 
@@ -768,15 +850,17 @@ input:focus, textarea:focus, select:focus {
 }
 
 .donation-table th {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--gray-500);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .donation-total {
   font-weight: 700;
   font-size: 16px;
-  color: var(--blue-700);
+  color: var(--blue-600);
   margin-top: 8px;
 }
 
@@ -784,7 +868,7 @@ input:focus, textarea:focus, select:focus {
   background: var(--red-100);
   color: #991b1b;
   padding: 12px 16px;
-  border-radius: 6px;
+  border-radius: 8px;
   text-align: center;
 }
 
@@ -798,7 +882,8 @@ input:focus, textarea:focus, select:focus {
 .search-table {
   width: 100%;
   min-width: 1200px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   background: var(--white);
 }
 
@@ -806,26 +891,28 @@ input:focus, textarea:focus, select:focus {
   background: var(--gray-50);
   text-align: left;
   padding: 12px 12px;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--gray-600);
-  border-bottom: 1px solid var(--gray-200);
+  color: var(--gray-500);
+  border-bottom: 2px solid var(--gray-200);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
   position: relative;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .search-col-headers th:hover { color: var(--blue-600); }
 
 .search-col-headers th.sort-asc::after {
-  content: ' \u25B2';
+  content: ' \25B2';
   font-size: 10px;
   color: var(--blue-600);
 }
 
 .search-col-headers th.sort-desc::after {
-  content: ' \u25BC';
+  content: ' \25BC';
   font-size: 10px;
   color: var(--blue-600);
 }
@@ -843,15 +930,15 @@ input:focus, textarea:focus, select:focus {
   width: 100%;
   padding: 4px 6px;
   font-size: 12px;
-  border: 1px solid var(--gray-300);
-  border-radius: 4px;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 6px;
   background: var(--white);
 }
 
 .search-filter-row .filter-input:focus {
   outline: none;
   border-color: var(--blue-500);
-  box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.12);
 }
 
 .filter-date-range,
@@ -888,6 +975,7 @@ input:focus, textarea:focus, select:focus {
 .search-table tbody tr:hover {
   background: var(--blue-50);
   cursor: pointer;
+  transition: background 0.15s;
 }
 
 .search-filter-banner {
@@ -895,7 +983,7 @@ input:focus, textarea:focus, select:focus {
   border: 1px solid var(--blue-200);
   color: var(--blue-700);
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
   margin-bottom: 12px;
   display: flex;
@@ -919,4 +1007,6 @@ input:focus, textarea:focus, select:focus {
 @media (max-width: 480px) {
   .dashboard-stats { grid-template-columns: 1fr; }
   .content { padding: 16px; }
+  .nav-brand { font-size: 17px; }
+  .stat-card { padding: 16px; }
 }
