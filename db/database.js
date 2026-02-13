@@ -10,9 +10,10 @@ let initPromise = null;
 
 // Wrapper around sql.js statement to provide a better-sqlite3-like API
 class StatementWrapper {
-  constructor(database, sql) {
+  constructor(database, sql, wrapper) {
     this._db = database;
     this._sql = sql;
+    this._wrapper = wrapper;
   }
 
   run(...params) {
@@ -30,7 +31,7 @@ class StatementWrapper {
     this._db.run(this._sql, flatParams);
     const lastId = this._db.exec('SELECT last_insert_rowid() as id')[0];
     const changes = this._db.getRowsModified();
-    _saveDb();
+    if (!this._wrapper || !this._wrapper._inTransaction) _saveDb();
     return {
       lastInsertRowid: lastId ? lastId.values[0][0] : 0,
       changes,
@@ -86,26 +87,30 @@ class StatementWrapper {
 class DbWrapper {
   constructor(sqlDb) {
     this._db = sqlDb;
+    this._inTransaction = false;
   }
 
   prepare(sql) {
-    return new StatementWrapper(this._db, sql);
+    return new StatementWrapper(this._db, sql, this);
   }
 
   exec(sql) {
     this._db.run(sql);
-    _saveDb();
+    if (!this._inTransaction) _saveDb();
   }
 
   transaction(fn) {
     return (...args) => {
+      this._inTransaction = true;
       this._db.run('BEGIN TRANSACTION');
       try {
         fn(...args);
         this._db.run('COMMIT');
+        this._inTransaction = false;
         _saveDb();
       } catch (e) {
-        this._db.run('ROLLBACK');
+        this._inTransaction = false;
+        try { this._db.run('ROLLBACK'); } catch (_) {}
         throw e;
       }
     };
