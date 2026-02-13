@@ -142,10 +142,22 @@ router.get('/export/csv', (req, res) => {
     const { sql, params } = buildContactQuery(req.query);
     const contacts = db.prepare(sql).all(...params);
 
-    const headers = ['first_name', 'last_name', 'email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'zip', 'country', 'organization', 'relationship', 'notes', 'tags', 'last_outreach_date', 'last_donation_date', 'last_donation_amount', 'total_donated'];
+    // Fetch full donation history for all exported contacts
+    const donationStmt = db.prepare('SELECT date, amount, method, recurring, notes FROM donations WHERE contact_id = ? ORDER BY date DESC');
+
+    const headers = ['first_name', 'last_name', 'email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'zip', 'country', 'organization', 'relationship', 'notes', 'tags', 'last_outreach_date', 'last_donation_date', 'last_donation_amount', 'total_donated', 'donation_history'];
     const csvRows = [headers.join(',')];
 
     for (const c of contacts) {
+      const donations = donationStmt.all(c.id);
+      c.donation_history = donations.map(d => {
+        const parts = [d.date, `$${Number(d.amount).toFixed(2)}`];
+        if (d.method) parts.push(d.method);
+        if (d.recurring) parts.push('recurring');
+        if (d.notes) parts.push(d.notes);
+        return parts.join(' | ');
+      }).join('; ');
+
       const row = headers.map(h => {
         const val = c[h] != null ? c[h] : '';
         return `"${String(val).replace(/"/g, '""')}"`;
