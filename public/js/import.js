@@ -295,23 +295,12 @@ function applyMappingToRow(row) {
   return contact;
 }
 
-function formatAddress(contact) {
-  const parts = [contact.address_line1, contact.address_line2].filter(Boolean);
-  const cityStateZip = [
-    contact.city,
-    [contact.state, contact.zip].filter(Boolean).join(' '),
-  ].filter(Boolean).join(', ');
-  if (cityStateZip) parts.push(cityStateZip);
-  if (contact.country && contact.country !== 'US') parts.push(contact.country);
-  return parts.join(', ');
-}
-
 function renderImportPreview() {
   const tbody = document.getElementById('import-preview-tbody');
   const rows = importState.previewRows;
 
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);">No preview data available.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--gray-400);">No preview data available.</td></tr>';
     return;
   }
 
@@ -323,9 +312,14 @@ function renderImportPreview() {
       <td><strong>${escapeHtml(name)}</strong></td>
       <td>${escapeHtml(c.email || '')}</td>
       <td>${escapeHtml(c.phone || '')}</td>
-      <td>${escapeHtml(formatAddress(c))}</td>
+      <td>${escapeHtml(c.city || '')}</td>
+      <td>${escapeHtml(c.state || '')}</td>
       <td>${escapeHtml(c.organization || '')}</td>
+      <td>${escapeHtml(c.relationship || '')}</td>
       <td>${renderTags(c.tags || '')}</td>
+      <td>\u2014</td>
+      <td>\u2014</td>
+      <td>\u2014</td>
     </tr>`;
   }
   tbody.innerHTML = html;

@@ -521,7 +521,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .import-section.wide {
-  max-width: 1100px;
+  max-width: 1400px;
 }
 
 .drop-zone {
@@ -596,10 +596,8 @@ input:focus, textarea:focus, select:focus {
 
 .import-preview-table-wrap {
   overflow-x: auto;
-}
-
-.import-preview-table {
-  min-width: 100%;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 .import-preview-table th {
@@ -610,7 +608,7 @@ input:focus, textarea:focus, select:focus {
   color: var(--gray-600);
 }
 
-.import-preview-table tr:hover {
+.import-preview-table tbody tr:hover {
   cursor: default;
 }
 
