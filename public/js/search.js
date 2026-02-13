@@ -167,14 +167,21 @@ function updateDateHints() {
     const fromVal = document.querySelector(`.filter-input[data-filter="${from}"]`).value;
     const toVal = document.querySelector(`.filter-input[data-filter="${to}"]`).value;
     const hintEl = document.getElementById(hint);
-    if (fromVal && toVal) {
+    if (fromVal && toVal && fromVal > toVal) {
+      hintEl.textContent = `"After" date must be before "before" date`;
+      hintEl.classList.add('error');
+    } else if (fromVal && toVal) {
       hintEl.textContent = `${label} between ${fromVal} and ${toVal}`;
+      hintEl.classList.remove('error');
     } else if (fromVal) {
       hintEl.textContent = `${label} after ${fromVal}`;
+      hintEl.classList.remove('error');
     } else if (toVal) {
       hintEl.textContent = `${label} before ${toVal}`;
+      hintEl.classList.remove('error');
     } else {
       hintEl.textContent = '';
+      hintEl.classList.remove('error');
     }
   }
 }
