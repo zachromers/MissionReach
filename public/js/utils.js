@@ -63,6 +63,38 @@ function hideModal(id) {
   document.getElementById(id).classList.add('hidden');
 }
 
+// Sync a top scrollbar div with a table wrapper's horizontal scroll
+function setupTopScroll(topScrollId, tableWrapId) {
+  const topScroll = document.getElementById(topScrollId);
+  const tableWrap = document.getElementById(tableWrapId);
+  if (!topScroll || !tableWrap) return;
+
+  let syncing = false;
+  function syncWidth() {
+    topScroll.firstElementChild.style.width = tableWrap.scrollWidth + 'px';
+  }
+
+  topScroll.addEventListener('scroll', () => {
+    if (syncing) return;
+    syncing = true;
+    tableWrap.scrollLeft = topScroll.scrollLeft;
+    syncing = false;
+  });
+
+  tableWrap.addEventListener('scroll', () => {
+    if (syncing) return;
+    syncing = true;
+    topScroll.scrollLeft = tableWrap.scrollLeft;
+    syncing = false;
+  });
+
+  // Update width when content changes
+  const observer = new MutationObserver(syncWidth);
+  observer.observe(tableWrap, { childList: true, subtree: true });
+  window.addEventListener('resize', syncWidth);
+  syncWidth();
+}
+
 // Copy text to clipboard
 async function copyToClipboard(text, btn) {
   try {

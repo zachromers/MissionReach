@@ -18,6 +18,7 @@ async function loadContacts() {
     renderContactsTable(contacts);
     collectTags(contacts);
     renderTagFilters();
+    setupTopScroll('contacts-top-scroll', 'contacts-table-wrap');
   } catch (err) {
     console.error('Error loading contacts:', err);
   }

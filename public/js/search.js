@@ -85,6 +85,7 @@ async function loadSearchResults() {
     lastSearchResults = contacts;
     renderSearchTable(contacts);
     document.getElementById('search-count').textContent = contacts.length;
+    setupTopScroll('search-top-scroll', 'search-table-wrap');
   } catch (err) {
     console.error('Error loading search results:', err);
   }

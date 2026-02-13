@@ -460,6 +460,16 @@ input:focus, textarea:focus, select:focus {
   color: var(--blue-700);
 }
 
+/* Top scrollbar mirror */
+.top-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.top-scroll > div {
+  height: 1px;
+}
+
 .contacts-table-wrap { overflow-x: auto; }
 
 .contacts-table {
