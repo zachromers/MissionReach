@@ -335,7 +335,13 @@ input:focus, textarea:focus, select:focus {
 }
 
 #btn-generate {
-  margin-bottom: 24px;
+  margin-bottom: 4px;
+}
+
+.model-indicator {
+  color: var(--gray-400);
+  font-size: 13px;
+  margin: 0 0 24px 0;
 }
 
 /* AI Results */

@@ -32,7 +32,7 @@ router.put('/', (req, res) => {
     const db = getDb();
     const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
 
-    const allowed = ['missionary_name', 'missionary_context', 'default_stale_days', 'anthropic_api_key'];
+    const allowed = ['missionary_name', 'missionary_context', 'default_stale_days', 'anthropic_api_key', 'claude_model'];
     const transaction = db.transaction((data) => {
       for (const [key, value] of Object.entries(data)) {
         if (allowed.includes(key)) {

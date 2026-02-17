@@ -13,6 +13,12 @@ function getSettings() {
 
 const MAX_CONTACTS_TO_SEND = 50;
 
+const MODEL_MAP = {
+  haiku: 'claude-haiku-4-5-20251001',
+  sonnet: 'claude-sonnet-4-20250514',
+  opus: 'claude-opus-4-6',
+};
+
 /**
  * Pre-filter contacts based on the user's natural language prompt.
  * Applies SQL-level filters using keyword detection, then caps results.
@@ -227,9 +233,11 @@ Guidelines for drafts:
 - If the prompt is about lapsed donors, frame outreach around reconnection, not asking for money`;
 
   const client = new Anthropic({ apiKey });
+  const modelKey = settings.claude_model || 'sonnet';
+  const model = MODEL_MAP[modelKey] || MODEL_MAP.sonnet;
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model,
     max_tokens: 4096,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],

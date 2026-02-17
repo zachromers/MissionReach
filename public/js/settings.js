@@ -5,6 +5,7 @@ async function loadSettings() {
     const settings = await api('api/settings');
     document.getElementById('setting-name').value = settings.missionary_name || '';
     document.getElementById('setting-context').value = settings.missionary_context || '';
+    document.getElementById('setting-model').value = settings.claude_model || 'sonnet';
     document.getElementById('setting-stale-days').value = settings.default_stale_days || '90';
   } catch (err) {
     console.error('Error loading settings:', err);
@@ -19,6 +20,7 @@ document.getElementById('settings-form').addEventListener('submit', async (e) =>
   const data = {
     missionary_name: document.getElementById('setting-name').value,
     missionary_context: document.getElementById('setting-context').value,
+    claude_model: document.getElementById('setting-model').value,
     default_stale_days: document.getElementById('setting-stale-days').value,
   };
 

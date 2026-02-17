@@ -1,7 +1,18 @@
 // Home page — AI prompt interface and dashboard
 
+const MODEL_LABELS = { haiku: 'Claude Haiku', sonnet: 'Claude Sonnet', opus: 'Claude Opus' };
+
 function initHome() {
   loadDashboardStats();
+  loadModelIndicator();
+}
+
+async function loadModelIndicator() {
+  try {
+    const settings = await api('api/settings');
+    const key = settings.claude_model || 'sonnet';
+    document.getElementById('model-indicator').textContent = 'Using ' + (MODEL_LABELS[key] || MODEL_LABELS.sonnet);
+  } catch {}
 }
 
 let cachedStaleDays = 90;
