@@ -5,6 +5,7 @@ let searchSort = 'last_name';
 let searchOrder = 'asc';
 let searchDebounceTimer = null;
 let searchExtraParams = {};
+let searchTagPicker = null;
 
 function initSearch(extraParams) {
   // Clear any previous extra params and filter inputs
@@ -21,12 +22,20 @@ function initSearch(extraParams) {
     h.classList.remove('sort-asc', 'sort-desc');
   });
 
+  // Reset search tag picker
+  if (searchTagPicker) searchTagPicker.setSelected([]);
+
   if (extraParams && typeof extraParams === 'object') {
     searchExtraParams = extraParams;
     // Pre-fill visible filter inputs where the key matches a data-filter attribute
     for (const [key, val] of Object.entries(extraParams)) {
       if (key === 'warmth_scores') {
         setWarmthMultiselect(String(val).split(','));
+        delete searchExtraParams[key];
+        continue;
+      }
+      if (key === 'tags_filter' && searchTagPicker) {
+        searchTagPicker.setSelected(String(val).split(',').map(t => t.trim()).filter(Boolean));
         delete searchExtraParams[key];
         continue;
       }
@@ -39,7 +48,22 @@ function initSearch(extraParams) {
   }
 
   updateSearchFilterBanner();
-  loadSearchResults();
+
+  // Initialize search tag picker
+  const searchTagContainer = document.getElementById('search-tag-picker');
+  if (searchTagContainer && !searchTagPicker) {
+    fetchAvailableTags().then(available => {
+      searchTagPicker = renderTagPicker(searchTagContainer, available, [], {
+        inputName: 'tags_filter',
+        onChange: () => {
+          clearTimeout(searchDebounceTimer);
+          searchDebounceTimer = setTimeout(loadSearchResults, 300);
+        }
+      });
+    }).then(() => loadSearchResults());
+  } else {
+    loadSearchResults();
+  }
 }
 
 function updateSearchFilterBanner() {
@@ -80,6 +104,11 @@ function gatherSearchFilters() {
   // Warmth multi-select
   const warmthVals = getWarmthMultiselectValues();
   if (warmthVals.length > 0) params.set('warmth_scores', warmthVals.join(','));
+  // Tag picker
+  if (searchTagPicker) {
+    const selectedTags = searchTagPicker.getSelected();
+    if (selectedTags.length > 0) params.set('tags_filter', selectedTags.join(','));
+  }
   // Append any extra params from stat card navigation
   for (const [key, val] of Object.entries(searchExtraParams)) {
     if (val) params.set(key, val);
@@ -228,6 +257,7 @@ document.addEventListener('click', (e) => {
     input.value = '';
   });
   clearWarmthMultiselect();
+  if (searchTagPicker) searchTagPicker.setSelected([]);
   searchSort = 'last_name';
   searchOrder = 'asc';
   searchExtraParams = {};

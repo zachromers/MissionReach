@@ -7,10 +7,102 @@ async function loadSettings() {
     document.getElementById('setting-context').value = settings.missionary_context || '';
     document.getElementById('setting-model').value = settings.claude_model || 'sonnet';
     document.getElementById('setting-stale-days').value = settings.default_stale_days || '90';
+    loadTagManagement();
   } catch (err) {
     console.error('Error loading settings:', err);
   }
 }
+
+async function loadTagManagement() {
+  const listEl = document.getElementById('tag-manage-list');
+  const statusEl = document.getElementById('tag-manage-status');
+  if (!listEl) return;
+
+  try {
+    const availableTags = await fetchAvailableTags(true);
+    // Fetch all contacts to see which tags are in use
+    const contacts = await api('api/contacts');
+    const usedTags = new Set();
+    for (const c of contacts) {
+      if (c.tags) {
+        c.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => usedTags.add(t));
+      }
+    }
+
+    listEl.innerHTML = '';
+    if (availableTags.length === 0) {
+      listEl.innerHTML = '<span style="color:var(--gray-400);font-size:13px;">No tags defined yet.</span>';
+      return;
+    }
+
+    for (const tag of availableTags) {
+      const pill = document.createElement('span');
+      const inUse = usedTags.has(tag);
+      pill.className = 'tag-manage-pill' + (inUse ? ' in-use' : '');
+      if (inUse) {
+        pill.innerHTML = `${escapeHtml(tag)}`;
+        pill.title = 'In use — cannot remove';
+      } else {
+        pill.innerHTML = `${escapeHtml(tag)} <button type="button" class="tag-remove-btn" data-tag="${escapeHtml(tag)}" title="Remove tag">&times;</button>`;
+        pill.querySelector('.tag-remove-btn').addEventListener('click', async () => {
+          const updated = availableTags.filter(t => t !== tag);
+          try {
+            await api('api/settings/tags', { method: 'PUT', body: { tags: updated } });
+            invalidateTagsCache();
+            loadTagManagement();
+          } catch (err) {
+            showTagStatus('Error removing tag: ' + err.message, 'error');
+          }
+        });
+      }
+      listEl.appendChild(pill);
+    }
+  } catch (err) {
+    listEl.innerHTML = '<span style="color:var(--red-500);font-size:13px;">Failed to load tags.</span>';
+  }
+}
+
+function showTagStatus(message, type) {
+  const statusEl = document.getElementById('tag-manage-status');
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.className = type || '';
+  statusEl.classList.remove('hidden');
+  if (type === 'success') {
+    setTimeout(() => statusEl.classList.add('hidden'), 3000);
+  }
+}
+
+// Add Tag button
+document.getElementById('btn-add-tag').addEventListener('click', async () => {
+  const input = document.getElementById('tag-manage-input');
+  const tagName = input.value.trim();
+  if (!tagName) return;
+
+  try {
+    const current = await fetchAvailableTags(true);
+    if (current.some(t => t.toLowerCase() === tagName.toLowerCase())) {
+      showTagStatus('Tag already exists.', 'error');
+      return;
+    }
+    const updated = [...current, tagName];
+    await api('api/settings/tags', { method: 'PUT', body: { tags: updated } });
+    invalidateTagsCache();
+    input.value = '';
+    showTagStatus('Tag added.', 'success');
+    loadTagManagement();
+  } catch (err) {
+    showTagStatus('Error: ' + err.message, 'error');
+  }
+});
+
+// Allow Enter key in tag input
+document.getElementById('tag-manage-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('btn-add-tag').click();
+  }
+});
 
 // Save settings
 document.getElementById('settings-form').addEventListener('submit', async (e) => {

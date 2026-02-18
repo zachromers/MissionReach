@@ -64,8 +64,11 @@ function buildContactQuery(query) {
   }
 
   if (tag) {
-    sql += ` AND (',' || c.tags || ',') LIKE ?`;
-    params.push(`%,${tag},%`);
+    const tags = tag.split(',').map(t => t.trim()).filter(Boolean);
+    for (const t of tags) {
+      sql += ` AND (',' || c.tags || ',') LIKE ?`;
+      params.push(`%,${t},%`);
+    }
   }
 
   // Per-column LIKE filters
@@ -109,8 +112,11 @@ function buildContactQuery(query) {
     params.push(Number(warmth_min));
   }
   if (tags_filter) {
-    sql += ` AND (',' || c.tags || ',') LIKE ?`;
-    params.push(`%${tags_filter}%`);
+    const filterTags = tags_filter.split(',').map(t => t.trim()).filter(Boolean);
+    for (const t of filterTags) {
+      sql += ` AND (',' || c.tags || ',') LIKE ?`;
+      params.push(`%,${t},%`);
+    }
   }
 
   // Boolean filters

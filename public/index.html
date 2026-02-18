@@ -157,7 +157,7 @@
               <td><input type="text" class="filter-input" data-filter="state" placeholder="State..."></td>
               <td><input type="text" class="filter-input" data-filter="organization" placeholder="Org..."></td>
               <td><input type="text" class="filter-input" data-filter="relationship" placeholder="Rel..."></td>
-              <td><input type="text" class="filter-input" data-filter="tags_filter" placeholder="Tag..."></td>
+              <td class="search-tag-filter-cell"><div id="search-tag-picker"></div></td>
               <td>
                 <div class="filter-date-range">
                   <input type="date" class="filter-input" data-filter="outreach_from" title="From">
@@ -273,6 +273,19 @@
           <button type="submit" class="btn btn-primary">Save Settings</button>
           <div id="settings-message" class="hidden"></div>
         </form>
+
+        <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--gray-200);">
+
+        <div class="tag-manage-section">
+          <h3 style="margin-bottom: 8px;">Manage Tags</h3>
+          <p style="color: var(--gray-400); font-size: 14px; margin-bottom: 12px;">Add or remove tags available for tagging contacts. Tags currently assigned to contacts cannot be removed.</p>
+          <div class="tag-manage-add-row">
+            <input type="text" id="tag-manage-input" placeholder="New tag name...">
+            <button type="button" class="btn btn-primary btn-sm" id="btn-add-tag">Add Tag</button>
+          </div>
+          <div class="tag-manage-list" id="tag-manage-list"></div>
+          <div id="tag-manage-status" class="hidden" style="margin-top: 8px;"></div>
+        </div>
 
         <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--gray-200);">
 

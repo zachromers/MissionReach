@@ -2,21 +2,19 @@
 
 let currentSort = 'last_name';
 let currentOrder = 'asc';
-let currentTag = '';
-let allTags = new Set();
+let currentTags = new Set();
 
 async function loadContacts() {
   try {
     const params = new URLSearchParams();
     const search = document.getElementById('contacts-search').value;
     if (search) params.set('search', search);
-    if (currentTag) params.set('tag', currentTag);
+    if (currentTags.size > 0) params.set('tag', Array.from(currentTags).join(','));
     params.set('sort', currentSort);
     params.set('order', currentOrder);
 
     const contacts = await api(`api/contacts?${params}`);
     renderContactsTable(contacts);
-    collectTags(contacts);
     renderTagFilters();
     setupTopScroll('contacts-top-scroll', 'contacts-table-wrap');
   } catch (err) {
@@ -24,33 +22,32 @@ async function loadContacts() {
   }
 }
 
-function collectTags(contacts) {
-  allTags = new Set();
-  for (const c of contacts) {
-    if (c.tags) {
-      c.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => allTags.add(t));
-    }
-  }
-}
-
-function renderTagFilters() {
+async function renderTagFilters() {
   const container = document.getElementById('tag-filters');
   container.innerHTML = '';
 
-  if (currentTag) {
-    const clearBtn = document.createElement('button');
-    clearBtn.className = 'tag-filter active';
-    clearBtn.textContent = `${currentTag} \u00D7`;
-    clearBtn.addEventListener('click', () => { currentTag = ''; loadContacts(); });
-    container.appendChild(clearBtn);
+  let allTags;
+  try {
+    allTags = await fetchAvailableTags();
+  } catch (e) {
+    allTags = [];
+  }
+
+  // Show active tags first
+  for (const tag of currentTags) {
+    const btn = document.createElement('button');
+    btn.className = 'tag-filter active';
+    btn.textContent = `${tag} \u00D7`;
+    btn.addEventListener('click', () => { currentTags.delete(tag); loadContacts(); });
+    container.appendChild(btn);
   }
 
   for (const tag of allTags) {
-    if (tag === currentTag) continue;
+    if (currentTags.has(tag)) continue;
     const btn = document.createElement('button');
     btn.className = 'tag-filter';
     btn.textContent = tag;
-    btn.addEventListener('click', () => { currentTag = tag; loadContacts(); });
+    btn.addEventListener('click', () => { currentTags.add(tag); loadContacts(); });
     container.appendChild(btn);
   }
 }
@@ -239,7 +236,7 @@ function renderContactModal(contact) {
         </div>
         <div class="form-group full-width">
           <label>Tags</label>
-          <input type="text" name="tags" value="${escapeHtml(contact.tags || '')}" placeholder="comma-separated tags">
+          <div id="edit-tag-picker-container"></div>
         </div>
         <div class="form-group full-width">
           <label>Notes</label>
@@ -288,6 +285,13 @@ function renderContactModal(contact) {
       <div class="donation-total">Total: ${formatCurrency(totalDonated)}</div>
     `}
   `;
+
+  // Initialize tag picker for edit form
+  const editTagContainer = body.querySelector('#edit-tag-picker-container');
+  const existingTags = contact.tags ? contact.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+  fetchAvailableTags().then(available => {
+    renderTagPicker(editTagContainer, available, existingTags, { allowAdd: true });
+  });
 
   // Edit form handler
   body.querySelector('#contact-edit-form').addEventListener('submit', async (e) => {
@@ -404,7 +408,7 @@ function openContactForm(contact) {
         </div>
         <div class="form-group full-width">
           <label>Tags</label>
-          <input type="text" name="tags" placeholder="comma-separated tags">
+          <div id="new-tag-picker-container"></div>
         </div>
         <div class="form-group full-width">
           <label>Notes</label>
@@ -414,6 +418,12 @@ function openContactForm(contact) {
       <button type="submit" class="btn btn-primary" style="margin-top:16px;">Create Contact</button>
     </form>
   `;
+
+  // Initialize tag picker for new contact form
+  const newTagContainer = body.querySelector('#new-tag-picker-container');
+  fetchAvailableTags().then(available => {
+    renderTagPicker(newTagContainer, available, [], { allowAdd: true });
+  });
 
   body.querySelector('#contact-new-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -518,8 +528,17 @@ function showDuplicateWarning(newContactData, duplicates) {
       const form = document.getElementById('contact-new-form');
       if (form) {
         for (const [key, val] of Object.entries(newContactData)) {
+          if (key === 'tags') continue; // handled by tag picker
           const input = form.querySelector(`[name="${key}"]`);
           if (input) input.value = val;
+        }
+        // Reinitialize tag picker with preserved tags
+        const tagContainer = document.getElementById('new-tag-picker-container');
+        if (tagContainer && newContactData.tags) {
+          const preservedTags = newContactData.tags.split(',').map(t => t.trim()).filter(Boolean);
+          fetchAvailableTags().then(available => {
+            renderTagPicker(tagContainer, available, preservedTags, { allowAdd: true });
+          });
         }
       }
     }, 0);

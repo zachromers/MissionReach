@@ -91,6 +91,29 @@ router.post('/execute', (req, res) => {
 
     insertMany(result.contacts);
 
+    // Auto-merge imported tags into available_tags
+    try {
+      const tagSet = new Set();
+      for (const c of result.contacts) {
+        if (c.tags) {
+          c.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
+        }
+      }
+      if (tagSet.size > 0) {
+        const existingRow = db.prepare("SELECT value FROM settings WHERE key = 'available_tags'").get();
+        const existing = existingRow ? JSON.parse(existingRow.value) : [];
+        const merged = new Map();
+        for (const t of existing) merged.set(t.toLowerCase(), t);
+        for (const t of tagSet) {
+          if (!merged.has(t.toLowerCase())) merged.set(t.toLowerCase(), t);
+        }
+        const sorted = Array.from(merged.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        db.prepare("INSERT INTO settings (key, value) VALUES ('available_tags', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(JSON.stringify(sorted));
+      }
+    } catch (tagErr) {
+      console.error('Warning: failed to merge imported tags:', tagErr.message);
+    }
+
     // Clean up uploaded file
     try { fs.unlinkSync(filePath); } catch {}
 

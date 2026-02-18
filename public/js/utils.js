@@ -120,6 +120,133 @@ function buildMailtoLink(email, subject, body) {
   return 'mailto:' + encodeURIComponent(email) + (params.length ? '?' + params.join('&') : '');
 }
 
+// --- Tag picker component + cache ---
+
+let _tagsCache = null;
+let _tagsCacheTime = 0;
+const TAGS_CACHE_TTL = 60000; // 1 minute
+
+async function fetchAvailableTags(forceRefresh = false) {
+  if (!forceRefresh && _tagsCache && (Date.now() - _tagsCacheTime < TAGS_CACHE_TTL)) {
+    return _tagsCache;
+  }
+  const data = await api('api/settings/tags');
+  _tagsCache = data.tags || [];
+  _tagsCacheTime = Date.now();
+  return _tagsCache;
+}
+
+function invalidateTagsCache() {
+  _tagsCache = null;
+  _tagsCacheTime = 0;
+}
+
+/**
+ * Render a tag picker component into a container.
+ * @param {HTMLElement} container - Element to render into
+ * @param {string[]} availableTags - All available tags
+ * @param {string[]} selectedTags - Initially selected tags
+ * @param {object} options - { onChange, allowAdd, inputName }
+ * @returns {{ getSelected(), setSelected(tags) }}
+ */
+function renderTagPicker(container, availableTags, selectedTags, options = {}) {
+  const inputName = options.inputName || 'tags';
+  let selected = [...selectedTags];
+
+  function render() {
+    container.innerHTML = '';
+    container.className = (container.className.replace(/\btag-picker\b/, '').trim() + ' tag-picker').trim();
+
+    // Selected tag pills
+    for (const tag of selected) {
+      const pill = document.createElement('span');
+      pill.className = 'tag-pill tag-picker-pill';
+      pill.innerHTML = `${escapeHtml(tag)} <button type="button" class="tag-remove" data-tag="${escapeHtml(tag)}">&times;</button>`;
+      pill.querySelector('.tag-remove').addEventListener('click', (e) => {
+        e.stopPropagation();
+        selected = selected.filter(t => t !== tag);
+        render();
+        if (options.onChange) options.onChange(selected);
+      });
+      container.appendChild(pill);
+    }
+
+    // Dropdown to add tags
+    const unselected = availableTags.filter(t => !selected.includes(t));
+    if (unselected.length > 0 || options.allowAdd) {
+      const select = document.createElement('select');
+      select.className = 'tag-picker-dropdown';
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = '+ Add tag...';
+      select.appendChild(defaultOpt);
+
+      for (const tag of unselected) {
+        const opt = document.createElement('option');
+        opt.value = tag;
+        opt.textContent = tag;
+        select.appendChild(opt);
+      }
+
+      if (options.allowAdd) {
+        const customOpt = document.createElement('option');
+        customOpt.value = '__custom__';
+        customOpt.textContent = '+ Type new tag...';
+        select.appendChild(customOpt);
+      }
+
+      select.addEventListener('change', async () => {
+        if (select.value === '__custom__') {
+          select.value = '';
+          const newTag = prompt('Enter new tag name:');
+          if (newTag && newTag.trim()) {
+            const trimmed = newTag.trim();
+            if (!selected.includes(trimmed)) {
+              selected.push(trimmed);
+              // Add to available tags via API
+              if (!availableTags.some(t => t.toLowerCase() === trimmed.toLowerCase())) {
+                availableTags.push(trimmed);
+                availableTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+                try {
+                  await api('api/settings/tags', { method: 'PUT', body: { tags: availableTags } });
+                  invalidateTagsCache();
+                } catch (e) { console.error('Failed to save new tag:', e); }
+              }
+              render();
+              if (options.onChange) options.onChange(selected);
+            }
+          }
+        } else if (select.value) {
+          selected.push(select.value);
+          render();
+          if (options.onChange) options.onChange(selected);
+        }
+      });
+      container.appendChild(select);
+    }
+
+    // Hidden input for FormData compatibility
+    let hiddenInput = container.querySelector(`input[name="${inputName}"]`);
+    if (!hiddenInput) {
+      hiddenInput = document.createElement('input');
+      hiddenInput.type = 'hidden';
+      hiddenInput.name = inputName;
+      container.appendChild(hiddenInput);
+    }
+    hiddenInput.value = selected.join(',');
+  }
+
+  render();
+
+  return {
+    getSelected() { return [...selected]; },
+    setSelected(tags) {
+      selected = [...tags];
+      render();
+    }
+  };
+}
+
 // Copy text to clipboard
 async function copyToClipboard(text, btn) {
   try {

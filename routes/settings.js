@@ -32,7 +32,7 @@ router.put('/', (req, res) => {
     const db = getDb();
     const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
 
-    const allowed = ['missionary_name', 'missionary_context', 'default_stale_days', 'anthropic_api_key', 'claude_model'];
+    const allowed = ['missionary_name', 'missionary_context', 'default_stale_days', 'anthropic_api_key', 'claude_model', 'available_tags'];
     const transaction = db.transaction((data) => {
       for (const [key, value] of Object.entries(data)) {
         if (allowed.includes(key)) {
@@ -43,6 +43,42 @@ router.put('/', (req, res) => {
 
     transaction(req.body);
     res.json({ message: 'Settings updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/settings/tags — return available tags list
+router.get('/tags', (req, res) => {
+  try {
+    const db = getDb();
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'available_tags'").get();
+    const tags = row ? JSON.parse(row.value) : [];
+    res.json({ tags });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/settings/tags — update available tags list
+router.put('/tags', (req, res) => {
+  try {
+    const db = getDb();
+    let tags = req.body.tags;
+    if (!Array.isArray(tags)) {
+      return res.status(400).json({ error: 'tags must be an array' });
+    }
+    // Deduplicate (case-insensitive) and sort
+    const seen = new Map();
+    for (const t of tags) {
+      const trimmed = String(t).trim();
+      if (trimmed && !seen.has(trimmed.toLowerCase())) {
+        seen.set(trimmed.toLowerCase(), trimmed);
+      }
+    }
+    const sorted = Array.from(seen.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    db.prepare("INSERT INTO settings (key, value) VALUES ('available_tags', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(JSON.stringify(sorted));
+    res.json({ tags: sorted });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

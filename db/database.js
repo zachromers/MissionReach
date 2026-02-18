@@ -191,6 +191,18 @@ async function initialize() {
     insert.run('anthropic_api_key', '');
   }
 
+  // Seed available_tags from existing contacts if not yet set
+  const tagsRow = db.prepare("SELECT value FROM settings WHERE key = 'available_tags'").get();
+  if (!tagsRow) {
+    const allContacts = db.prepare('SELECT tags FROM contacts WHERE tags IS NOT NULL AND tags != ""').all();
+    const tagSet = new Set();
+    for (const c of allContacts) {
+      c.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
+    }
+    const sorted = Array.from(tagSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('available_tags', JSON.stringify(sorted));
+  }
+
   return db;
 }
 
