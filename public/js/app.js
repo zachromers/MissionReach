@@ -32,6 +32,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Brand link — always navigates to home
+  document.getElementById('nav-brand-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    tabs.forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-tab="home"]').classList.add('active');
+    pages.forEach(p => p.classList.remove('active'));
+    document.getElementById('page-home').classList.add('active');
+    initHome();
+  });
+
   // Initialize home page
   initHome();
 });
