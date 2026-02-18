@@ -340,7 +340,7 @@ async function generateWarmthScores({ forceAll = false } = {}) {
     try {
       const response = await client.messages.create({
         model: MODEL_MAP.haiku,
-        max_tokens: 1024,
+        max_tokens: 4096,
         system: `You score missionary contacts on how likely they are to donate today, 1-5 scale:
 1 = Very unlikely (no relationship/history, never donated)
 2 = Unlikely (minimal engagement)
@@ -349,6 +349,7 @@ async function generateWarmthScores({ forceAll = false } = {}) {
 5 = Very likely (strong donor, recent activity, warm relationship)
 
 For each contact, also provide a one-sentence reason explaining why you gave that score.
+You MUST return a score for EVERY contact provided. Do not skip any.
 
 Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reason": "<one sentence explanation>" }] }`,
         messages: [{ role: 'user', content: `Score these contacts:\n${JSON.stringify(contactSummaries)}` }],
