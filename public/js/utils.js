@@ -42,7 +42,11 @@ function renderTags(tags) {
 }
 
 function getPhotoUrl(contact, size = 128) {
-  if (contact.photo_url) return contact.photo_url;
+  if (contact.photo_url) {
+    // Strip leading slash so URLs resolve relative to the base path
+    if (contact.photo_url.startsWith('/uploads/')) return contact.photo_url.substring(1);
+    return contact.photo_url;
+  }
   const name = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || '?';
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f46e5&color=fff&size=${size}&bold=true`;
 }

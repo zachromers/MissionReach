@@ -394,12 +394,13 @@ router.post('/:id/photo', photoUpload.single('photo'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
 
     // Delete old uploaded photo if it exists (don't delete external URLs)
-    if (contact.photo_url && contact.photo_url.startsWith('/uploads/photos/')) {
-      const oldPath = path.join(__dirname, '..', 'public', contact.photo_url);
+    const oldUrl = contact.photo_url || '';
+    if (oldUrl.endsWith && (oldUrl.startsWith('/uploads/photos/') || oldUrl.startsWith('uploads/photos/'))) {
+      const oldPath = path.join(__dirname, '..', 'public', oldUrl.replace(/^\//, ''));
       if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
     }
 
-    const photoUrl = `/uploads/photos/${req.file.filename}`;
+    const photoUrl = `uploads/photos/${req.file.filename}`;
     db.prepare('UPDATE contacts SET photo_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(photoUrl, req.params.id);
 
     const updated = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
