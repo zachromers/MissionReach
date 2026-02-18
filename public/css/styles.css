@@ -577,7 +577,7 @@ input:focus, textarea:focus, select:focus {
   display: inline-flex;
   align-items: center;
 }
-.send-email-btn:hover { background: var(--blue-700); }
+.send-email-btn:hover { background: var(--blue-700); color: var(--white); }
 
 .reasoning-section {
   margin-top: 16px;

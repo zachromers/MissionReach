@@ -296,6 +296,7 @@
       <div class="modal-body">
         <form id="outreach-form">
           <input type="hidden" id="outreach-contact-id">
+          <input type="hidden" id="outreach-contact-email">
           <div class="form-group">
             <label for="outreach-mode">Mode</label>
             <select id="outreach-mode">
@@ -316,8 +317,9 @@
             <label for="outreach-content">Content</label>
             <textarea id="outreach-content" rows="4"></textarea>
           </div>
-          <div style="display:flex;gap:8px;margin-top:8px;">
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
             <button type="submit" class="btn btn-primary">Log Outreach</button>
+            <a id="btn-send-email" class="btn send-email-btn hidden" href="#" target="_blank" title="Open in your email client">Send Email</a>
             <button type="button" class="btn" id="btn-generate-outreach">Generate Recommended Outreach</button>
           </div>
         </form>

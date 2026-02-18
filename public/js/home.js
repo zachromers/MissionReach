@@ -265,7 +265,7 @@ function renderAiResults(data, append) {
     card.innerHTML = `
       <div class="result-card-header">
         <div class="result-card-name"><img class="avatar avatar-sm" src="${photoSrc}" alt=""><h3>${escapeHtml(name)}</h3></div>
-        <button class="btn btn-sm btn-log-outreach" data-contact-id="${rec.contact_id}" data-mode="email" data-subject="${escapeHtml(emailDraft.subject || '')}" data-content="${escapeHtml(emailDraft.body || '')}">Log This Outreach</button>
+        <button class="btn btn-sm btn-log-outreach" data-contact-id="${rec.contact_id}" data-mode="email" data-email="${escapeHtml(c.email || '')}" data-subject="${escapeHtml(emailDraft.subject || '')}" data-content="${escapeHtml(emailDraft.body || '')}">Log This Outreach</button>
       </div>
       <div class="result-meta">
         <span>Warmth: ${renderWarmthScore(c.warmth_score, c.warmth_score_reason)}</span>
@@ -310,9 +310,11 @@ function renderAiResults(data, append) {
     card.querySelector('.btn-log-outreach').addEventListener('click', (e) => {
       const btn = e.currentTarget;
       document.getElementById('outreach-contact-id').value = btn.dataset.contactId;
+      document.getElementById('outreach-contact-email').value = btn.dataset.email || '';
       document.getElementById('outreach-mode').value = btn.dataset.mode || 'email';
       document.getElementById('outreach-subject').value = btn.dataset.subject || '';
       document.getElementById('outreach-content').value = btn.dataset.content || '';
+      updateSendEmailButton();
       showModal('outreach-modal');
     });
 
@@ -429,6 +431,25 @@ document.getElementById('btn-load-more').addEventListener('click', async () => {
   }
 });
 
+// Update Send Email button visibility and href in outreach modal
+function updateSendEmailButton() {
+  const email = document.getElementById('outreach-contact-email').value;
+  const mode = document.getElementById('outreach-mode').value;
+  const subject = document.getElementById('outreach-subject').value;
+  const content = document.getElementById('outreach-content').value;
+  const btn = document.getElementById('btn-send-email');
+  if (mode === 'email' && email) {
+    btn.href = buildMailtoLink(email, subject, content);
+    btn.classList.remove('hidden');
+  } else {
+    btn.classList.add('hidden');
+  }
+}
+
+document.getElementById('outreach-mode').addEventListener('change', updateSendEmailButton);
+document.getElementById('outreach-subject').addEventListener('input', updateSendEmailButton);
+document.getElementById('outreach-content').addEventListener('input', updateSendEmailButton);
+
 // Generate outreach draft button
 document.getElementById('btn-generate-outreach').addEventListener('click', async () => {
   const contactId = document.getElementById('outreach-contact-id').value;
@@ -448,6 +469,7 @@ document.getElementById('btn-generate-outreach').addEventListener('click', async
     });
     document.getElementById('outreach-subject').value = result.subject || '';
     document.getElementById('outreach-content').value = result.content || '';
+    updateSendEmailButton();
   } catch (err) {
     alert('Error generating outreach: ' + err.message);
   } finally {

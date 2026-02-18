@@ -333,9 +333,11 @@ function renderContactModal(contact) {
   // Add outreach
   body.querySelector('#btn-add-outreach').addEventListener('click', () => {
     document.getElementById('outreach-contact-id').value = contact.id;
+    document.getElementById('outreach-contact-email').value = contact.email || '';
     document.getElementById('outreach-mode').value = 'email';
     document.getElementById('outreach-subject').value = '';
     document.getElementById('outreach-content').value = '';
+    updateSendEmailButton();
     showModal('outreach-modal');
   });
 
