@@ -6,6 +6,8 @@ let searchOrder = 'asc';
 let searchDebounceTimer = null;
 let searchExtraParams = {};
 let searchTagPicker = null;
+let searchPage = 1;
+let searchPageSize = 50;
 
 function initSearch(extraParams) {
   // Clear any previous extra params and filter inputs
@@ -18,6 +20,7 @@ function initSearch(extraParams) {
 
   searchSort = 'last_name';
   searchOrder = 'asc';
+  searchPage = 1;
   document.querySelectorAll('#page-search .search-col-headers th').forEach(h => {
     h.classList.remove('sort-asc', 'sort-desc');
   });
@@ -115,16 +118,26 @@ function gatherSearchFilters() {
   }
   params.set('sort', searchSort);
   params.set('order', searchOrder);
+  params.set('page', searchPage);
+  params.set('limit', searchPageSize);
   return params;
 }
 
 async function loadSearchResults() {
   try {
     const params = gatherSearchFilters();
-    const contacts = await api(`api/contacts?${params}`);
-    lastSearchResults = contacts;
-    renderSearchTable(contacts);
-    document.getElementById('search-count').textContent = contacts.length;
+    const data = await api(`api/contacts?${params}`);
+    lastSearchResults = data.contacts;
+    renderSearchTable(data.contacts);
+    document.getElementById('search-count').textContent = data.total;
+    renderPagination('search-pagination', {
+      page: data.page,
+      limit: data.limit,
+      total: data.total,
+      totalPages: data.totalPages,
+      onPageChange: (p) => { searchPage = p; loadSearchResults(); },
+      onPageSizeChange: (s) => { searchPageSize = s; searchPage = 1; loadSearchResults(); },
+    });
     setupTopScroll('search-top-scroll', 'search-table-wrap');
   } catch (err) {
     console.error('Error loading search results:', err);
@@ -144,7 +157,7 @@ function renderSearchTable(contacts) {
     const tr = document.createElement('tr');
     tr.addEventListener('click', () => openContactDetail(c.id));
     tr.innerHTML = `
-      <td><div class="contact-name-cell"><img class="avatar avatar-sm" src="${getPhotoUrl(c, 64)}" alt=""><span>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</span></div></td>
+      <td><div class="contact-name-cell"><img class="avatar avatar-sm" src="${AVATAR_PLACEHOLDER}" data-src="${getPhotoUrl(c, 64)}" alt=""><span>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</span></div></td>
       <td>${renderWarmthScore(c.warmth_score, c.warmth_score_reason)}</td>
       <td>${escapeHtml(c.email || '')}</td>
       <td>${escapeHtml(c.phone || '')}</td>
@@ -159,6 +172,8 @@ function renderSearchTable(contacts) {
     `;
     tbody.appendChild(tr);
   }
+
+  observeLazyAvatars(tbody);
 }
 
 // Sort headers
@@ -180,6 +195,7 @@ document.addEventListener('click', (e) => {
   });
   th.classList.add(searchOrder === 'asc' ? 'sort-asc' : 'sort-desc');
 
+  searchPage = 1;
   loadSearchResults();
 });
 
@@ -187,6 +203,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('input', (e) => {
   if (!e.target.closest('#page-search') || !e.target.classList.contains('filter-input')) return;
   clearTimeout(searchDebounceTimer);
+  searchPage = 1;
   searchDebounceTimer = setTimeout(loadSearchResults, 400);
 });
 
@@ -194,6 +211,7 @@ document.addEventListener('input', (e) => {
 document.addEventListener('change', (e) => {
   if (!e.target.closest('#page-search') || !e.target.classList.contains('filter-input')) return;
   if (e.target.type === 'date' || e.target.type === 'number' || e.target.tagName === 'SELECT') {
+    searchPage = 1;
     updateDateHints();
     loadSearchResults();
   }
@@ -260,6 +278,7 @@ document.addEventListener('click', (e) => {
   if (searchTagPicker) searchTagPicker.setSelected([]);
   searchSort = 'last_name';
   searchOrder = 'asc';
+  searchPage = 1;
   searchExtraParams = {};
   document.querySelectorAll('#page-search .search-col-headers th').forEach(h => {
     h.classList.remove('sort-asc', 'sort-desc');

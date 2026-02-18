@@ -43,7 +43,7 @@ async function loadContactCarousel() {
   const carousel = document.getElementById('contact-carousel');
   if (!carousel) return;
   try {
-    carouselContacts = await api('api/contacts');
+    carouselContacts = await api('api/contacts/carousel');
     renderCarousel();
   } catch (err) {
     carousel.innerHTML = '<p style="color:var(--gray-400);padding:20px;">Unable to load contacts.</p>';

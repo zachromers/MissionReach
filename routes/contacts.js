@@ -35,8 +35,8 @@ const photoUpload = multer({
 });
 
 // Shared query builder for contacts list + CSV export
-function buildContactQuery(query, userId) {
-  const { search, tag, sort, order,
+function buildContactQuery(query, userId, { paginate = true } = {}) {
+  const { search, tag, sort, order, page, limit,
     name_filter, email_filter, phone_filter,
     city, state, organization, relationship,
     outreach_from, outreach_to,
@@ -46,6 +46,142 @@ function buildContactQuery(query, userId) {
     warmth_min, warmth_scores, tags_filter,
     stale_days, donated_since, contacted_since } = query;
 
+  // Build WHERE clause (shared between data + count queries)
+  let where = `WHERE c.user_id = ?`;
+  const whereParams = [userId];
+
+  if (search) {
+    where += ` AND (c.first_name LIKE ? OR c.last_name LIKE ? OR c.email LIKE ? OR c.organization LIKE ? OR c.phone LIKE ?)`;
+    const term = `%${search}%`;
+    whereParams.push(term, term, term, term, term);
+  }
+
+  if (tag) {
+    const tags = tag.split(',').map(t => t.trim()).filter(Boolean);
+    for (const t of tags) {
+      where += ` AND (',' || c.tags || ',') LIKE ?`;
+      whereParams.push(`%,${t},%`);
+    }
+  }
+
+  // Per-column LIKE filters
+  if (name_filter) {
+    where += ` AND (c.first_name LIKE ? OR c.last_name LIKE ? OR (c.first_name || ' ' || c.last_name) LIKE ?)`;
+    const t = `%${name_filter}%`;
+    whereParams.push(t, t, t);
+  }
+  if (email_filter) {
+    where += ` AND c.email LIKE ?`;
+    whereParams.push(`%${email_filter}%`);
+  }
+  if (phone_filter) {
+    where += ` AND c.phone LIKE ?`;
+    whereParams.push(`%${phone_filter}%`);
+  }
+  if (city) {
+    where += ` AND c.city LIKE ?`;
+    whereParams.push(`%${city}%`);
+  }
+  if (state) {
+    where += ` AND c.state LIKE ?`;
+    whereParams.push(`%${state}%`);
+  }
+  if (organization) {
+    where += ` AND c.organization LIKE ?`;
+    whereParams.push(`%${organization}%`);
+  }
+  if (relationship) {
+    where += ` AND c.relationship LIKE ?`;
+    whereParams.push(`%${relationship}%`);
+  }
+  if (warmth_scores) {
+    const scores = String(warmth_scores).split(',').map(Number).filter(n => n >= 1 && n <= 5);
+    if (scores.length > 0) {
+      where += ` AND c.warmth_score IN (${scores.map(() => '?').join(',')})`;
+      whereParams.push(...scores);
+    }
+  } else if (warmth_min) {
+    where += ` AND c.warmth_score >= ?`;
+    whereParams.push(Number(warmth_min));
+  }
+  if (tags_filter) {
+    const filterTags = tags_filter.split(',').map(t => t.trim()).filter(Boolean);
+    for (const t of filterTags) {
+      where += ` AND (',' || c.tags || ',') LIKE ?`;
+      whereParams.push(`%,${t},%`);
+    }
+  }
+
+  // Boolean filters
+  if (has_email === '1') {
+    where += ` AND c.email IS NOT NULL AND c.email != ''`;
+  } else if (has_email === '0') {
+    where += ` AND (c.email IS NULL OR c.email = '')`;
+  }
+  if (has_phone === '1') {
+    where += ` AND c.phone IS NOT NULL AND c.phone != ''`;
+  } else if (has_phone === '0') {
+    where += ` AND (c.phone IS NULL OR c.phone = '')`;
+  }
+
+  // Stale contacts: no outreach in the last N days (or never contacted)
+  if (stale_days) {
+    where += ` AND NOT EXISTS (
+      SELECT 1 FROM outreaches o WHERE o.contact_id = c.id
+      AND o.date >= datetime('now', '-' || ? || ' days')
+    )`;
+    whereParams.push(Number(stale_days));
+  }
+
+  // Donated since a given date (any donation, not just the latest)
+  if (donated_since) {
+    where += ` AND EXISTS (SELECT 1 FROM donations d WHERE d.contact_id = c.id AND d.date >= ?)`;
+    whereParams.push(donated_since);
+  }
+
+  // Contacted since a given date (any outreach)
+  if (contacted_since) {
+    where += ` AND EXISTS (SELECT 1 FROM outreaches o WHERE o.contact_id = c.id AND o.date >= ?)`;
+    whereParams.push(contacted_since);
+  }
+
+  // Date range filters (on computed subqueries via HAVING-style re-filter)
+  if (outreach_from) {
+    where += ` AND (SELECT MAX(o.date) FROM outreaches o WHERE o.contact_id = c.id) >= ?`;
+    whereParams.push(outreach_from);
+  }
+  if (outreach_to) {
+    where += ` AND (SELECT MAX(o.date) FROM outreaches o WHERE o.contact_id = c.id) <= ?`;
+    whereParams.push(outreach_to);
+  }
+  if (donation_from) {
+    where += ` AND (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) >= ?`;
+    whereParams.push(donation_from);
+  }
+  if (donation_to) {
+    where += ` AND (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) <= ?`;
+    whereParams.push(donation_to);
+  }
+
+  // Numeric range on total donated
+  if (total_donated_min) {
+    where += ` AND (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) >= ?`;
+    whereParams.push(Number(total_donated_min));
+  }
+  if (total_donated_max) {
+    where += ` AND (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) <= ?`;
+    whereParams.push(Number(total_donated_max));
+  }
+
+  const allowedSorts = ['first_name', 'last_name', 'email', 'created_at', 'last_outreach_date', 'last_donation_date', 'total_donated', 'city', 'state', 'organization', 'relationship', 'phone', 'warmth_score', 'tags'];
+  const sortCol = allowedSorts.includes(sort) ? sort : 'last_name';
+  const sortOrder = order === 'desc' ? 'DESC' : 'ASC';
+
+  // Count query (cheap — no correlated subqueries)
+  const countSql = `SELECT COUNT(*) as total FROM contacts c ${where}`;
+  const countParams = [...whereParams];
+
+  // Data query (with correlated subqueries for computed columns)
   let sql = `
     SELECT c.*,
       (SELECT MAX(o.date) FROM outreaches o WHERE o.contact_id = c.id) as last_outreach_date,
@@ -53,139 +189,20 @@ function buildContactQuery(query, userId) {
       (SELECT d.amount FROM donations d WHERE d.contact_id = c.id ORDER BY d.date DESC LIMIT 1) as last_donation_amount,
       (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) as total_donated
     FROM contacts c
-    WHERE c.user_id = ?
+    ${where}
+    ORDER BY ${sortCol} ${sortOrder}
   `;
-  const params = [userId];
+  const params = [...whereParams];
 
-  if (search) {
-    sql += ` AND (c.first_name LIKE ? OR c.last_name LIKE ? OR c.email LIKE ? OR c.organization LIKE ? OR c.phone LIKE ?)`;
-    const term = `%${search}%`;
-    params.push(term, term, term, term, term);
-  }
-
-  if (tag) {
-    const tags = tag.split(',').map(t => t.trim()).filter(Boolean);
-    for (const t of tags) {
-      sql += ` AND (',' || c.tags || ',') LIKE ?`;
-      params.push(`%,${t},%`);
-    }
+  // Pagination
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(200, Math.max(1, parseInt(limit) || 50));
+  if (paginate) {
+    sql += ` LIMIT ? OFFSET ?`;
+    params.push(limitNum, (pageNum - 1) * limitNum);
   }
 
-  // Per-column LIKE filters
-  if (name_filter) {
-    sql += ` AND (c.first_name LIKE ? OR c.last_name LIKE ? OR (c.first_name || ' ' || c.last_name) LIKE ?)`;
-    const t = `%${name_filter}%`;
-    params.push(t, t, t);
-  }
-  if (email_filter) {
-    sql += ` AND c.email LIKE ?`;
-    params.push(`%${email_filter}%`);
-  }
-  if (phone_filter) {
-    sql += ` AND c.phone LIKE ?`;
-    params.push(`%${phone_filter}%`);
-  }
-  if (city) {
-    sql += ` AND c.city LIKE ?`;
-    params.push(`%${city}%`);
-  }
-  if (state) {
-    sql += ` AND c.state LIKE ?`;
-    params.push(`%${state}%`);
-  }
-  if (organization) {
-    sql += ` AND c.organization LIKE ?`;
-    params.push(`%${organization}%`);
-  }
-  if (relationship) {
-    sql += ` AND c.relationship LIKE ?`;
-    params.push(`%${relationship}%`);
-  }
-  if (warmth_scores) {
-    const scores = String(warmth_scores).split(',').map(Number).filter(n => n >= 1 && n <= 5);
-    if (scores.length > 0) {
-      sql += ` AND c.warmth_score IN (${scores.map(() => '?').join(',')})`;
-      params.push(...scores);
-    }
-  } else if (warmth_min) {
-    sql += ` AND c.warmth_score >= ?`;
-    params.push(Number(warmth_min));
-  }
-  if (tags_filter) {
-    const filterTags = tags_filter.split(',').map(t => t.trim()).filter(Boolean);
-    for (const t of filterTags) {
-      sql += ` AND (',' || c.tags || ',') LIKE ?`;
-      params.push(`%,${t},%`);
-    }
-  }
-
-  // Boolean filters
-  if (has_email === '1') {
-    sql += ` AND c.email IS NOT NULL AND c.email != ''`;
-  } else if (has_email === '0') {
-    sql += ` AND (c.email IS NULL OR c.email = '')`;
-  }
-  if (has_phone === '1') {
-    sql += ` AND c.phone IS NOT NULL AND c.phone != ''`;
-  } else if (has_phone === '0') {
-    sql += ` AND (c.phone IS NULL OR c.phone = '')`;
-  }
-
-  // Stale contacts: no outreach in the last N days (or never contacted)
-  if (stale_days) {
-    sql += ` AND NOT EXISTS (
-      SELECT 1 FROM outreaches o WHERE o.contact_id = c.id
-      AND o.date >= datetime('now', '-' || ? || ' days')
-    )`;
-    params.push(Number(stale_days));
-  }
-
-  // Donated since a given date (any donation, not just the latest)
-  if (donated_since) {
-    sql += ` AND EXISTS (SELECT 1 FROM donations d WHERE d.contact_id = c.id AND d.date >= ?)`;
-    params.push(donated_since);
-  }
-
-  // Contacted since a given date (any outreach)
-  if (contacted_since) {
-    sql += ` AND EXISTS (SELECT 1 FROM outreaches o WHERE o.contact_id = c.id AND o.date >= ?)`;
-    params.push(contacted_since);
-  }
-
-  // Date range filters (on computed subqueries via HAVING-style re-filter)
-  if (outreach_from) {
-    sql += ` AND (SELECT MAX(o.date) FROM outreaches o WHERE o.contact_id = c.id) >= ?`;
-    params.push(outreach_from);
-  }
-  if (outreach_to) {
-    sql += ` AND (SELECT MAX(o.date) FROM outreaches o WHERE o.contact_id = c.id) <= ?`;
-    params.push(outreach_to);
-  }
-  if (donation_from) {
-    sql += ` AND (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) >= ?`;
-    params.push(donation_from);
-  }
-  if (donation_to) {
-    sql += ` AND (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) <= ?`;
-    params.push(donation_to);
-  }
-
-  // Numeric range on total donated
-  if (total_donated_min) {
-    sql += ` AND (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) >= ?`;
-    params.push(Number(total_donated_min));
-  }
-  if (total_donated_max) {
-    sql += ` AND (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) <= ?`;
-    params.push(Number(total_donated_max));
-  }
-
-  const allowedSorts = ['first_name', 'last_name', 'email', 'created_at', 'last_outreach_date', 'last_donation_date', 'total_donated', 'city', 'state', 'organization', 'relationship', 'phone', 'warmth_score', 'tags'];
-  const sortCol = allowedSorts.includes(sort) ? sort : 'last_name';
-  const sortOrder = order === 'desc' ? 'DESC' : 'ASC';
-  sql += ` ORDER BY ${sortCol} ${sortOrder}`;
-
-  return { sql, params };
+  return { sql, params, countSql, countParams, pageNum, limitNum };
 }
 
 // GET /api/contacts/export/csv — MUST be before /:id
@@ -193,7 +210,7 @@ router.get('/export/csv', (req, res) => {
   try {
     const db = getDb();
     const userId = req.user.id;
-    const { sql, params } = buildContactQuery(req.query, userId);
+    const { sql, params } = buildContactQuery(req.query, userId, { paginate: false });
     const contacts = db.prepare(sql).all(...params);
 
     // Fetch full donation history for all exported contacts
@@ -227,67 +244,110 @@ router.get('/export/csv', (req, res) => {
   }
 });
 
-// GET /api/contacts — list all, with search/tag/sort/filters
+// GET /api/contacts — paginated list with search/tag/sort/filters
 router.get('/', (req, res) => {
   try {
     const db = getDb();
     const userId = req.user.id;
-    const { sql, params } = buildContactQuery(req.query, userId);
+    const { sql, params, countSql, countParams, pageNum, limitNum } = buildContactQuery(req.query, userId);
     const contacts = db.prepare(sql).all(...params);
+    const { total } = db.prepare(countSql).get(...countParams);
+    res.json({
+      contacts,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/contacts/carousel — lightweight endpoint for home page carousel
+router.get('/carousel', (req, res) => {
+  try {
+    const db = getDb();
+    const userId = req.user.id;
+    const contacts = db.prepare(`
+      SELECT id, first_name, last_name, photo_url, warmth_score, warmth_score_reason
+      FROM contacts WHERE user_id = ?
+      ORDER BY warmth_score DESC
+      LIMIT 50
+    `).all(userId);
     res.json(contacts);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/contacts/find-all-duplicates — scan all contacts for duplicate pairs
+// GET /api/contacts/find-all-duplicates — scan all contacts for duplicate pairs (SQL-based)
 router.get('/find-all-duplicates', (req, res) => {
   try {
     const db = getDb();
     const userId = req.user.id;
-    const contacts = db.prepare('SELECT * FROM contacts WHERE user_id = ?').all(userId);
 
-    function normalizePhone(p) {
-      return (p || '').replace(/\D/g, '');
+    // Find duplicate pairs using SQL self-joins
+    const pairRows = db.prepare(`
+      SELECT a.id as id_a, b.id as id_b, 'name' as reason
+      FROM contacts a JOIN contacts b ON a.id < b.id
+        AND a.user_id = ? AND b.user_id = ?
+        AND a.first_name IS NOT NULL AND a.last_name IS NOT NULL
+        AND LOWER(a.first_name) = LOWER(b.first_name)
+        AND LOWER(a.last_name) = LOWER(b.last_name)
+      UNION ALL
+      SELECT a.id, b.id, 'email'
+      FROM contacts a JOIN contacts b ON a.id < b.id
+        AND a.user_id = ? AND b.user_id = ?
+        AND a.email IS NOT NULL AND a.email != ''
+        AND LOWER(TRIM(a.email)) = LOWER(TRIM(b.email))
+      UNION ALL
+      SELECT a.id, b.id, 'phone'
+      FROM contacts a JOIN contacts b ON a.id < b.id
+        AND a.user_id = ? AND b.user_id = ?
+        AND normalize_phone(a.phone) IS NOT NULL
+        AND normalize_phone(a.phone) = normalize_phone(b.phone)
+      UNION ALL
+      SELECT a.id, b.id, 'address'
+      FROM contacts a JOIN contacts b ON a.id < b.id
+        AND a.user_id = ? AND b.user_id = ?
+        AND a.address_line1 IS NOT NULL AND a.address_line1 != ''
+        AND LOWER(TRIM(a.address_line1)) = LOWER(TRIM(b.address_line1))
+    `).all(userId, userId, userId, userId, userId, userId, userId, userId);
+
+    // Group by pair, collect reasons
+    const pairMap = new Map();
+    for (const row of pairRows) {
+      const key = `${row.id_a}-${row.id_b}`;
+      if (!pairMap.has(key)) {
+        pairMap.set(key, { id_a: row.id_a, id_b: row.id_b, reasons: [] });
+      }
+      pairMap.get(key).reasons.push(row.reason);
     }
 
+    if (pairMap.size === 0) {
+      return res.json({ pairs: [] });
+    }
+
+    // Fetch all involved contact records in one query
+    const allIds = new Set();
+    for (const p of pairMap.values()) {
+      allIds.add(p.id_a);
+      allIds.add(p.id_b);
+    }
+    const idList = Array.from(allIds);
+    const placeholders = idList.map(() => '?').join(',');
+    const contactRows = db.prepare(`SELECT * FROM contacts WHERE id IN (${placeholders})`).all(...idList);
+    const contactMap = new Map();
+    for (const c of contactRows) contactMap.set(c.id, c);
+
     const pairs = [];
-    for (let i = 0; i < contacts.length; i++) {
-      for (let j = i + 1; j < contacts.length; j++) {
-        const a = contacts[i];
-        const b = contacts[j];
-        const reasons = [];
-
-        // Name match
-        if (a.first_name && a.last_name && b.first_name && b.last_name &&
-            a.first_name.toLowerCase() === b.first_name.toLowerCase() &&
-            a.last_name.toLowerCase() === b.last_name.toLowerCase()) {
-          reasons.push('name');
-        }
-
-        // Email match
-        if (a.email && b.email &&
-            a.email.trim().toLowerCase() === b.email.trim().toLowerCase()) {
-          reasons.push('email');
-        }
-
-        // Phone match (normalized digits)
-        const phoneA = normalizePhone(a.phone);
-        const phoneB = normalizePhone(b.phone);
-        if (phoneA.length >= 7 && phoneA === phoneB) {
-          reasons.push('phone');
-        }
-
-        // Address match
-        if (a.address_line1 && b.address_line1 &&
-            a.address_line1.trim().toLowerCase() === b.address_line1.trim().toLowerCase()) {
-          reasons.push('address');
-        }
-
-        if (reasons.length > 0) {
-          pairs.push({ contactA: a, contactB: b, reasons });
-        }
-      }
+    for (const p of pairMap.values()) {
+      pairs.push({
+        contactA: contactMap.get(p.id_a),
+        contactB: contactMap.get(p.id_b),
+        reasons: p.reasons,
+      });
     }
 
     res.json({ pairs });
@@ -321,11 +381,6 @@ router.post('/check-duplicates', (req, res) => {
     const { first_name, last_name, email, phone, address_line1 } = req.body;
     const duplicates = new Map(); // id -> { contact, reasons[] }
 
-    // Helper to normalize phone: strip everything except digits
-    function normalizePhone(p) {
-      return (p || '').replace(/\D/g, '');
-    }
-
     // 1. Name match (case-insensitive)
     if (first_name && last_name) {
       const rows = db.prepare(
@@ -348,18 +403,16 @@ router.post('/check-duplicates', (req, res) => {
       }
     }
 
-    // 3. Phone match (normalized digits, non-empty only)
+    // 3. Phone match (SQL-based using normalize_phone)
     if (phone && phone.trim()) {
-      const normalized = normalizePhone(phone);
+      const normalized = phone.replace(/\D/g, '');
       if (normalized.length >= 7) {
         const rows = db.prepare(
-          `SELECT * FROM contacts WHERE phone IS NOT NULL AND phone != '' AND user_id = ?`
-        ).all(userId);
+          `SELECT * FROM contacts WHERE normalize_phone(phone) = ? AND user_id = ?`
+        ).all(normalized, userId);
         for (const r of rows) {
-          if (normalizePhone(r.phone) === normalized) {
-            if (!duplicates.has(r.id)) duplicates.set(r.id, { contact: r, reasons: [] });
-            duplicates.get(r.id).reasons.push('phone');
-          }
+          if (!duplicates.has(r.id)) duplicates.set(r.id, { contact: r, reasons: [] });
+          duplicates.get(r.id).reasons.push('phone');
         }
       }
     }

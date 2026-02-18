@@ -74,3 +74,15 @@ CREATE TABLE IF NOT EXISTS users (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Performance indexes
+CREATE INDEX IF NOT EXISTS idx_contacts_user_id ON contacts(user_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_user_last_name ON contacts(user_id, last_name);
+CREATE INDEX IF NOT EXISTS idx_contacts_user_email ON contacts(user_id, email);
+CREATE INDEX IF NOT EXISTS idx_contacts_user_warmth ON contacts(user_id, warmth_score);
+CREATE INDEX IF NOT EXISTS idx_donations_contact_id ON donations(contact_id);
+CREATE INDEX IF NOT EXISTS idx_donations_date ON donations(date);
+CREATE INDEX IF NOT EXISTS idx_donations_user_id ON donations(user_id);
+CREATE INDEX IF NOT EXISTS idx_outreaches_contact_id ON outreaches(contact_id);
+CREATE INDEX IF NOT EXISTS idx_outreaches_date ON outreaches(date);
+CREATE INDEX IF NOT EXISTS idx_outreaches_user_id ON outreaches(user_id);

@@ -3,6 +3,8 @@
 let currentSort = 'last_name';
 let currentOrder = 'asc';
 let currentTags = new Set();
+let currentPage = 1;
+let pageSize = 50;
 
 async function loadContacts() {
   try {
@@ -12,9 +14,19 @@ async function loadContacts() {
     if (currentTags.size > 0) params.set('tag', Array.from(currentTags).join(','));
     params.set('sort', currentSort);
     params.set('order', currentOrder);
+    params.set('page', currentPage);
+    params.set('limit', pageSize);
 
-    const contacts = await api(`api/contacts?${params}`);
-    renderContactsTable(contacts);
+    const data = await api(`api/contacts?${params}`);
+    renderContactsTable(data.contacts);
+    renderPagination('contacts-pagination', {
+      page: data.page,
+      limit: data.limit,
+      total: data.total,
+      totalPages: data.totalPages,
+      onPageChange: (p) => { currentPage = p; loadContacts(); },
+      onPageSizeChange: (s) => { pageSize = s; currentPage = 1; loadContacts(); },
+    });
     renderTagFilters();
     setupTopScroll('contacts-top-scroll', 'contacts-table-wrap');
   } catch (err) {
@@ -38,7 +50,7 @@ async function renderTagFilters() {
     const btn = document.createElement('button');
     btn.className = 'tag-filter active';
     btn.textContent = `${tag} \u00D7`;
-    btn.addEventListener('click', () => { currentTags.delete(tag); loadContacts(); });
+    btn.addEventListener('click', () => { currentTags.delete(tag); currentPage = 1; loadContacts(); });
     container.appendChild(btn);
   }
 
@@ -47,7 +59,7 @@ async function renderTagFilters() {
     const btn = document.createElement('button');
     btn.className = 'tag-filter';
     btn.textContent = tag;
-    btn.addEventListener('click', () => { currentTags.add(tag); loadContacts(); });
+    btn.addEventListener('click', () => { currentTags.add(tag); currentPage = 1; loadContacts(); });
     container.appendChild(btn);
   }
 }
@@ -65,7 +77,7 @@ function renderContactsTable(contacts) {
     const tr = document.createElement('tr');
     tr.addEventListener('click', () => openContactDetail(c.id));
     tr.innerHTML = `
-      <td><div class="contact-name-cell"><img class="avatar avatar-sm" src="${getPhotoUrl(c, 64)}" alt=""><strong>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</strong></div></td>
+      <td><div class="contact-name-cell"><img class="avatar avatar-sm" src="${AVATAR_PLACEHOLDER}" data-src="${getPhotoUrl(c, 64)}" alt=""><strong>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</strong></div></td>
       <td>${renderWarmthScore(c.warmth_score, c.warmth_score_reason)}</td>
       <td>${escapeHtml(c.email || '')}</td>
       <td>${escapeHtml(c.phone || '')}</td>
@@ -75,12 +87,15 @@ function renderContactsTable(contacts) {
     `;
     tbody.appendChild(tr);
   }
+
+  observeLazyAvatars(tbody);
 }
 
 // Search
 let searchTimeout;
 document.getElementById('contacts-search').addEventListener('input', () => {
   clearTimeout(searchTimeout);
+  currentPage = 1;
   searchTimeout = setTimeout(loadContacts, 300);
 });
 
@@ -94,6 +109,7 @@ document.querySelectorAll('.contacts-table th[data-sort]').forEach(th => {
       currentSort = col;
       currentOrder = 'asc';
     }
+    currentPage = 1;
     loadContacts();
   });
 });

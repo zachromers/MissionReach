@@ -252,6 +252,86 @@ function renderTagPicker(container, availableTags, selectedTags, options = {}) {
   };
 }
 
+// --- Pagination component ---
+function renderPagination(containerId, { page, limit, total, totalPages, onPageChange, onPageSizeChange }) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (total === 0) return;
+
+  const start = (page - 1) * limit + 1;
+  const end = Math.min(page * limit, total);
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'pagination';
+
+  // Previous button
+  const prevBtn = document.createElement('button');
+  prevBtn.className = 'btn btn-sm pagination-btn';
+  prevBtn.textContent = 'Previous';
+  prevBtn.disabled = page <= 1;
+  prevBtn.addEventListener('click', () => onPageChange(page - 1));
+  wrapper.appendChild(prevBtn);
+
+  // Info
+  const info = document.createElement('span');
+  info.className = 'pagination-info';
+  info.textContent = `Showing ${start}-${end} of ${total}`;
+  wrapper.appendChild(info);
+
+  // Next button
+  const nextBtn = document.createElement('button');
+  nextBtn.className = 'btn btn-sm pagination-btn';
+  nextBtn.textContent = 'Next';
+  nextBtn.disabled = page >= totalPages;
+  nextBtn.addEventListener('click', () => onPageChange(page + 1));
+  wrapper.appendChild(nextBtn);
+
+  // Page size selector
+  const sizeLabel = document.createElement('span');
+  sizeLabel.className = 'pagination-size-label';
+  sizeLabel.textContent = 'Per page:';
+  wrapper.appendChild(sizeLabel);
+
+  const sizeSelect = document.createElement('select');
+  sizeSelect.className = 'pagination-size-select';
+  for (const size of [25, 50, 100]) {
+    const opt = document.createElement('option');
+    opt.value = size;
+    opt.textContent = size;
+    if (size === limit) opt.selected = true;
+    sizeSelect.appendChild(opt);
+  }
+  sizeSelect.addEventListener('change', () => onPageSizeChange(Number(sizeSelect.value)));
+  wrapper.appendChild(sizeSelect);
+
+  container.appendChild(wrapper);
+}
+
+// --- Lazy avatar loading ---
+const _avatarObserver = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (entry.isIntersecting) {
+      const img = entry.target;
+      if (img.dataset.src) {
+        img.src = img.dataset.src;
+        delete img.dataset.src;
+      }
+      _avatarObserver.unobserve(img);
+    }
+  }
+}, { rootMargin: '200px' });
+
+function observeLazyAvatars(container) {
+  const images = (container || document).querySelectorAll('img[data-src]');
+  for (const img of images) {
+    _avatarObserver.observe(img);
+  }
+}
+
+const AVATAR_PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="%23e2e8f0" rx="16"/><text x="16" y="20" text-anchor="middle" fill="%2394a3b8" font-size="14" font-family="sans-serif">?</text></svg>');
+
 // Copy text to clipboard
 async function copyToClipboard(text, btn) {
   try {

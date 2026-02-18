@@ -31,7 +31,7 @@ class StatementWrapper {
     this._db.run(this._sql, flatParams);
     const lastId = this._db.exec('SELECT last_insert_rowid() as id')[0];
     const changes = this._db.getRowsModified();
-    if (!this._wrapper || !this._wrapper._inTransaction) _saveDb();
+    if (!this._wrapper || !this._wrapper._inTransaction) _debouncedSave();
     return {
       lastInsertRowid: lastId ? lastId.values[0][0] : 0,
       changes,
@@ -96,7 +96,7 @@ class DbWrapper {
 
   exec(sql) {
     this._db.run(sql);
-    if (!this._inTransaction) _saveDb();
+    if (!this._inTransaction) _debouncedSave();
   }
 
   transaction(fn) {
@@ -117,12 +117,33 @@ class DbWrapper {
   }
 }
 
+// Debounced save — coalesces rapid writes into a single disk flush
+let _saveTimer = null;
+
 function _saveDb() {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = null;
   if (db && db._db) {
     const data = db._db.export();
     const buffer = Buffer.from(data);
     fs.writeFileSync(DB_PATH, buffer);
+    // sql.js export() destroys custom function registrations — re-register
+    _registerCustomFunctions();
   }
+}
+
+function _registerCustomFunctions() {
+  if (!db || !db._db) return;
+  db._db.create_function('normalize_phone', (phone) => {
+    if (!phone) return null;
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 7 ? digits : null;
+  });
+}
+
+function _debouncedSave() {
+  if (_saveTimer) return; // already scheduled
+  _saveTimer = setTimeout(_saveDb, 100);
 }
 
 function _hasColumn(tableName, columnName) {
@@ -132,6 +153,13 @@ function _hasColumn(tableName, columnName) {
   } catch (e) {
     return false;
   }
+}
+
+// Phone normalization helper (used by duplicate detection routes)
+function normalizePhone(phone) {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 7 ? digits : null;
 }
 
 async function initialize() {
@@ -148,6 +176,9 @@ async function initialize() {
 
   // Enable foreign keys
   db._db.run('PRAGMA foreign_keys = ON');
+
+  // Register custom SQL functions (must re-register after every export())
+  _registerCustomFunctions();
 
   // --- Settings table migration (must happen BEFORE schema.sql runs) ---
   // Check if the old settings table exists with single-column primary key
@@ -268,6 +299,9 @@ async function initialize() {
     db.prepare('INSERT INTO settings (user_id, key, value) VALUES (1, ?, ?)').run('available_tags', JSON.stringify(sorted));
   }
 
+  // Ensure immediate flush after init
+  _saveDb();
+
   return db;
 }
 
@@ -286,4 +320,4 @@ function initializeAsync() {
   return initPromise;
 }
 
-module.exports = { initialize: initializeAsync, getDb };
+module.exports = { initialize: initializeAsync, getDb, normalizePhone };
