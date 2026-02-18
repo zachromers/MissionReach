@@ -21,12 +21,9 @@ router.get('/users', (req, res) => {
 // POST /api/admin/users — create a user
 router.post('/users', (req, res) => {
   try {
-    const { username, password, display_name, role } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    const { username, display_name, role } = req.body;
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
     }
 
     const db = getDb();
@@ -35,10 +32,11 @@ router.post('/users', (req, res) => {
       return res.status(409).json({ error: 'Username already exists' });
     }
 
-    const hash = bcrypt.hashSync(password, 10);
+    const DEFAULT_PASSWORD = 'password123';
+    const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
     const validRole = role === 'admin' ? 'admin' : 'user';
     const result = db.prepare(
-      'INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)'
+      'INSERT INTO users (username, password_hash, display_name, role, must_change_password) VALUES (?, ?, ?, ?, 1)'
     ).run(username, hash, display_name || null, validRole);
 
     const user = db.prepare('SELECT id, username, display_name, role, created_at, updated_at FROM users WHERE id = ?').get(result.lastInsertRowid);
@@ -77,6 +75,8 @@ router.put('/users/:id', (req, res) => {
       }
       updates.push('password_hash = ?');
       params.push(bcrypt.hashSync(password, 10));
+      // Force user to change password on next login
+      updates.push('must_change_password = 1');
     }
     if (display_name !== undefined) {
       updates.push('display_name = ?');

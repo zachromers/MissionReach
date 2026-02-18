@@ -213,12 +213,18 @@ async function initialize() {
     _saveDb();
   }
 
+  // --- Migrate: add must_change_password column if missing ---
+  if (!_hasColumn('users', 'must_change_password')) {
+    db._db.run('ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 1');
+    _saveDb();
+  }
+
   // --- Bootstrap admin user ---
   const adminUser = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
   if (!adminUser) {
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync('admin', 10);
-    db.prepare('INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)').run('admin', hash, 'Administrator', 'admin');
+    db.prepare('INSERT INTO users (username, password_hash, display_name, role, must_change_password) VALUES (?, ?, ?, ?, 1)').run('admin', hash, 'Administrator', 'admin');
     console.log('Created default admin user (username: admin, password: admin)');
   }
 

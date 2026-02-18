@@ -36,13 +36,19 @@ function showUserForm(title, user) {
   document.getElementById('admin-role').value = user ? user.role : 'user';
   document.getElementById('admin-form-message').classList.add('hidden');
 
+  const passwordGroup = document.getElementById('admin-password-group');
+  const defaultPwdNote = document.getElementById('admin-default-password-note');
   const hint = document.getElementById('admin-password-hint');
   if (user) {
-    hint.textContent = 'Leave blank to keep current password.';
+    // Editing — show password field for optional reset, hide default note
+    passwordGroup.classList.remove('hidden');
+    defaultPwdNote.classList.add('hidden');
+    hint.textContent = 'Leave blank to keep current password. Setting a new password will force the user to change it on next login.';
     document.getElementById('admin-password').removeAttribute('required');
   } else {
-    hint.textContent = 'Minimum 6 characters.';
-    document.getElementById('admin-password').setAttribute('required', '');
+    // Creating — hide password field, show default password note
+    passwordGroup.classList.add('hidden');
+    defaultPwdNote.classList.remove('hidden');
   }
 
   document.getElementById('admin-user-form-wrap').classList.remove('hidden');
@@ -99,13 +105,7 @@ document.getElementById('admin-user-form').addEventListener('submit', async (e) 
     if (userId) {
       await api(`api/admin/users/${userId}`, { method: 'PUT', body: data });
     } else {
-      if (!password) {
-        msgEl.textContent = 'Password is required for new users.';
-        msgEl.className = 'error';
-        msgEl.classList.remove('hidden');
-        return;
-      }
-      data.password = password;
+      // New user — server assigns default password 'password123'
       await api('api/admin/users', { method: 'POST', body: data });
     }
     hideUserForm();

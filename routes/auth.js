@@ -41,7 +41,7 @@ router.post('/login', (req, res) => {
       username: user.username,
       display_name: user.display_name,
       role: user.role,
-      is_default_password: user.username === 'admin' && bcrypt.compareSync('admin', user.password_hash),
+      must_change_password: !!user.must_change_password,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -64,7 +64,7 @@ router.get('/me', requireAuth, (req, res) => {
       username: user.username,
       display_name: user.display_name,
       role: user.role,
-      is_default_password: user.username === 'admin' && bcrypt.compareSync('admin', user.password_hash),
+      must_change_password: !!user.must_change_password,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -91,7 +91,7 @@ router.put('/password', requireAuth, (req, res) => {
     }
 
     const hash = bcrypt.hashSync(new_password, 10);
-    db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hash, req.user.id);
+    db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hash, req.user.id);
 
     res.json({ message: 'Password updated successfully' });
   } catch (err) {

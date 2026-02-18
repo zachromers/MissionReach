@@ -10,6 +10,10 @@ async function checkAuth() {
       return false;
     }
     currentUser = await res.json();
+    if (currentUser.must_change_password) {
+      showForcePasswordChange();
+      return false;
+    }
     showApp();
     return true;
   } catch (err) {
@@ -21,11 +25,20 @@ async function checkAuth() {
 function showLogin() {
   document.getElementById('login-page').classList.remove('hidden');
   document.getElementById('app-shell').classList.add('hidden');
+  document.getElementById('force-password-page').classList.add('hidden');
+}
+
+function showForcePasswordChange() {
+  document.getElementById('login-page').classList.add('hidden');
+  document.getElementById('app-shell').classList.add('hidden');
+  document.getElementById('force-password-page').classList.remove('hidden');
+  document.getElementById('force-new-password').focus();
 }
 
 function showApp() {
   document.getElementById('login-page').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
+  document.getElementById('force-password-page').classList.add('hidden');
 
   // Update user display in nav
   const userDisplay = document.getElementById('nav-user-display');
@@ -43,15 +56,9 @@ function showApp() {
     }
   }
 
-  // Show default password warning
+  // Hide the default-password banner (now handled by force screen)
   const banner = document.getElementById('default-password-banner');
-  if (banner) {
-    if (currentUser && currentUser.is_default_password) {
-      banner.classList.remove('hidden');
-    } else {
-      banner.classList.add('hidden');
-    }
-  }
+  if (banner) banner.classList.add('hidden');
 }
 
 async function handleLogin(e) {
@@ -82,9 +89,76 @@ async function handleLogin(e) {
     }
     currentUser = data;
     document.getElementById('login-password').value = '';
+
+    if (currentUser.must_change_password) {
+      showForcePasswordChange();
+      return;
+    }
+
     showApp();
 
     // Always reset to home tab on login
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-tab="home"]').classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-home').classList.add('active');
+    initHome();
+  } catch (err) {
+    errorEl.textContent = 'Connection error. Please try again.';
+    errorEl.classList.remove('hidden');
+  }
+}
+
+async function handleForcePasswordChange(e) {
+  e.preventDefault();
+  const errorEl = document.getElementById('force-password-error');
+  errorEl.classList.add('hidden');
+
+  const currentPwd = document.getElementById('force-current-password').value;
+  const newPwd = document.getElementById('force-new-password').value;
+  const confirmPwd = document.getElementById('force-confirm-password').value;
+
+  if (!currentPwd || !newPwd) {
+    errorEl.textContent = 'Please fill in all fields.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  if (newPwd.length < 6) {
+    errorEl.textContent = 'New password must be at least 6 characters.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  if (newPwd !== confirmPwd) {
+    errorEl.textContent = 'New passwords do not match.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    const res = await fetch('api/auth/password', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: currentPwd, new_password: newPwd }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Failed to change password.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    // Clear form
+    document.getElementById('force-current-password').value = '';
+    document.getElementById('force-new-password').value = '';
+    document.getElementById('force-confirm-password').value = '';
+
+    // Re-check auth — must_change_password should now be false
+    currentUser.must_change_password = false;
+    showApp();
+
+    // Reset to home tab
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     document.querySelector('[data-tab="home"]').classList.add('active');
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -107,5 +181,6 @@ async function handleLogout() {
 // Set up login form and logout button listeners
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('login-form').addEventListener('submit', handleLogin);
+  document.getElementById('force-password-form').addEventListener('submit', handleForcePasswordChange);
   document.getElementById('btn-logout').addEventListener('click', handleLogout);
 });
