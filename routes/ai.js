@@ -6,10 +6,10 @@ const { getDb } = require('../db/database');
 // POST /api/ai/prompt
 router.post('/prompt', async (req, res) => {
   try {
-    const { prompt } = req.body;
+    const { prompt, excludeIds } = req.body;
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    const result = await processPrompt(prompt);
+    const result = await processPrompt(prompt, excludeIds || []);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

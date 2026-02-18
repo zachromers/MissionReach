@@ -23,7 +23,7 @@ const MODEL_MAP = {
  * Pre-filter contacts based on the user's natural language prompt.
  * Applies SQL-level filters using keyword detection, then caps results.
  */
-function preFilterContacts(userPrompt) {
+function preFilterContacts(userPrompt, excludeIds = []) {
   const db = getDb();
   const prompt = userPrompt.toLowerCase();
 
@@ -31,6 +31,12 @@ function preFilterContacts(userPrompt) {
   let orderBy = 'c.last_name, c.first_name';
   let limit = MAX_CONTACTS_TO_SEND;
   const params = [];
+
+  // Exclude already-recommended contacts
+  if (excludeIds.length > 0) {
+    where.push(`c.id NOT IN (${excludeIds.map(() => '?').join(',')})`);
+    params.push(...excludeIds);
+  }
 
   // --- Keyword-based filter rules ---
 
@@ -184,7 +190,7 @@ function preFilterContacts(userPrompt) {
   };
 }
 
-async function processPrompt(userPrompt) {
+async function processPrompt(userPrompt, excludeIds = []) {
   const settings = getSettings();
   const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
 
@@ -192,7 +198,7 @@ async function processPrompt(userPrompt) {
     throw new Error('Please configure your Anthropic API key in Settings.');
   }
 
-  const { contacts, filterApplied } = preFilterContacts(userPrompt);
+  const { contacts, filterApplied } = preFilterContacts(userPrompt, excludeIds);
   if (contacts.length === 0) {
     throw new Error('No contacts found matching your query. Try a different prompt or add more contacts.');
   }
@@ -342,7 +348,9 @@ async function generateWarmthScores() {
 4 = Likely (active relationship, recent engagement)
 5 = Very likely (strong donor, recent activity, warm relationship)
 
-Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5> }] }`,
+For each contact, also provide a one-sentence reason explaining why you gave that score.
+
+Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reason": "<one sentence explanation>" }] }`,
         messages: [{ role: 'user', content: `Score these contacts:\n${JSON.stringify(contactSummaries)}` }],
       });
 
@@ -356,10 +364,10 @@ Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5> }] }`,
       }
 
       if (parsed && parsed.scores) {
-        const updateStmt = db.prepare('UPDATE contacts SET warmth_score = ?, warmth_score_updated_at = datetime(\'now\') WHERE id = ?');
+        const updateStmt = db.prepare('UPDATE contacts SET warmth_score = ?, warmth_score_reason = ?, warmth_score_updated_at = datetime(\'now\') WHERE id = ?');
         for (const entry of parsed.scores) {
           const score = Math.max(1, Math.min(5, Math.round(entry.score)));
-          updateStmt.run(score, entry.id);
+          updateStmt.run(score, entry.reason || null, entry.id);
           totalUpdated++;
         }
       }
@@ -416,7 +424,9 @@ async function generateSingleWarmthScore(contactId) {
 4 = Likely (active relationship, recent engagement)
 5 = Very likely (strong donor, recent activity, warm relationship)
 
-Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5> }] }`,
+For each contact, also provide a one-sentence reason explaining why you gave that score.
+
+Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reason": "<one sentence explanation>" }] }`,
       messages: [{ role: 'user', content: `Score this contact:\n${JSON.stringify(contactSummary)}` }],
     });
 
@@ -431,7 +441,8 @@ Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5> }] }`,
 
     if (parsed && parsed.scores && parsed.scores[0]) {
       const score = Math.max(1, Math.min(5, Math.round(parsed.scores[0].score)));
-      db.prepare('UPDATE contacts SET warmth_score = ?, warmth_score_updated_at = datetime(\'now\') WHERE id = ?').run(score, contactId);
+      const reason = parsed.scores[0].reason || null;
+      db.prepare('UPDATE contacts SET warmth_score = ?, warmth_score_reason = ?, warmth_score_updated_at = datetime(\'now\') WHERE id = ?').run(score, reason, contactId);
     }
   } catch (err) {
     console.error('Single warmth score error:', err.message);

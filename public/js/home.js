@@ -72,7 +72,7 @@ function renderCarousel() {
     tile.innerHTML = `
       <img class="carousel-photo" src="${photoSrc}" alt="${escapeHtml(displayName)}">
       <div class="carousel-name">${escapeHtml(displayName)}</div>
-      <div class="carousel-score">${renderWarmthScore(score)}</div>
+      <div class="carousel-score">${renderWarmthScore(score, c.warmth_score_reason)}</div>
     `;
     tile.addEventListener('click', () => {
       if (typeof openContactDetail === 'function') openContactDetail(c.id);
@@ -179,6 +179,9 @@ document.getElementById('btn-generate').addEventListener('click', async () => {
   document.getElementById('btn-generate').disabled = true;
 
   try {
+    lastPrompt = prompt;
+    excludedContactIds = [];
+
     const data = await api('api/ai/prompt', {
       method: 'POST',
       body: { prompt },
@@ -193,7 +196,7 @@ document.getElementById('btn-generate').addEventListener('click', async () => {
       return;
     }
 
-    renderAiResults(data);
+    renderAiResults(data, false);
   } catch (err) {
     loadingEl.classList.add('hidden');
     document.getElementById('btn-generate').disabled = false;
@@ -203,21 +206,46 @@ document.getElementById('btn-generate').addEventListener('click', async () => {
 });
 
 let lastAiResults = null;
+let lastPrompt = '';
+let excludedContactIds = [];
 
-function renderAiResults(data) {
-  lastAiResults = data;
+function renderAiResults(data, append) {
+  if (append && lastAiResults) {
+    lastAiResults.contacts = (lastAiResults.contacts || []).concat(data.contacts || []);
+  } else {
+    lastAiResults = data;
+    excludedContactIds = [];
+  }
+
+  // Track all shown contact IDs for future exclusion
+  for (const rec of (data.contacts || [])) {
+    if (rec.contact_id && !excludedContactIds.includes(rec.contact_id)) {
+      excludedContactIds.push(rec.contact_id);
+    }
+  }
+
   const resultsEl = document.getElementById('ai-results');
   const cardsEl = document.getElementById('results-cards');
   const countEl = document.getElementById('results-count');
   const reasoningEl = document.getElementById('ai-reasoning');
+  const loadMoreWrap = document.getElementById('load-more-wrap');
 
-  const contacts = data.contacts || [];
-  countEl.textContent = contacts.length;
-  reasoningEl.textContent = data.reasoning || '';
+  const allContacts = lastAiResults.contacts || [];
+  countEl.textContent = allContacts.length;
+  if (!append) {
+    reasoningEl.textContent = data.reasoning || '';
+    cardsEl.innerHTML = '';
+  }
 
-  cardsEl.innerHTML = '';
+  // Show load more button if new results were returned
+  const newContacts = data.contacts || [];
+  if (newContacts.length > 0) {
+    loadMoreWrap.classList.remove('hidden');
+  } else {
+    loadMoreWrap.classList.add('hidden');
+  }
 
-  for (const rec of contacts) {
+  for (const rec of newContacts) {
     const c = rec.contact || {};
     const name = `${c.first_name || ''} ${c.last_name || ''}`.trim() || `Contact #${rec.contact_id}`;
     const emailDraft = rec.email_draft || {};
@@ -232,7 +260,7 @@ function renderAiResults(data) {
         <button class="btn btn-sm btn-log-outreach" data-contact-id="${rec.contact_id}" data-mode="email" data-subject="${escapeHtml(emailDraft.subject || '')}" data-content="${escapeHtml(emailDraft.body || '')}">Log This Outreach</button>
       </div>
       <div class="result-meta">
-        <span>Warmth: ${renderWarmthScore(c.warmth_score)}</span>
+        <span>Warmth: ${renderWarmthScore(c.warmth_score, c.warmth_score_reason)}</span>
         <span>Relationship: ${escapeHtml(c.relationship || '—')}</span>
         <span>Last Contact: ${formatDate(c.last_outreach_date)}</span>
         <span>Last Donation: ${formatDate(c.last_donation_date)} ${c.last_donation_amount ? formatCurrency(c.last_donation_amount) : ''}</span>
@@ -267,12 +295,9 @@ function renderAiResults(data) {
         </div>
       </details>
     `;
-    cardsEl.appendChild(card);
-  }
-
-  // Log outreach buttons
-  cardsEl.querySelectorAll('.btn-log-outreach').forEach(btn => {
-    btn.addEventListener('click', () => {
+    // Attach log outreach listener to this card
+    card.querySelector('.btn-log-outreach').addEventListener('click', (e) => {
+      const btn = e.currentTarget;
       document.getElementById('outreach-contact-id').value = btn.dataset.contactId;
       document.getElementById('outreach-mode').value = btn.dataset.mode || 'email';
       document.getElementById('outreach-subject').value = btn.dataset.subject || '';
@@ -280,7 +305,9 @@ function renderAiResults(data) {
       document.getElementById('outreach-ai-generated').checked = true;
       showModal('outreach-modal');
     });
-  });
+
+    cardsEl.appendChild(card);
+  }
 
   resultsEl.classList.remove('hidden');
 }
@@ -343,6 +370,53 @@ document.getElementById('btn-export-drafts').addEventListener('click', () => {
   a.download = 'outreach-drafts.txt';
   a.click();
   URL.revokeObjectURL(url);
+});
+
+// Load more contacts
+document.getElementById('btn-load-more').addEventListener('click', async () => {
+  if (!lastPrompt) return;
+
+  const btn = document.getElementById('btn-load-more');
+  const loadingEl = document.getElementById('load-more-loading');
+  const errorEl = document.getElementById('ai-error');
+
+  btn.disabled = true;
+  loadingEl.classList.remove('hidden');
+
+  try {
+    const data = await api('api/ai/prompt', {
+      method: 'POST',
+      body: { prompt: lastPrompt, excludeIds: excludedContactIds },
+    });
+
+    loadingEl.classList.add('hidden');
+    btn.disabled = false;
+
+    if (data.error) {
+      errorEl.textContent = data.message || data.error;
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    const newContacts = data.contacts || [];
+    if (newContacts.length === 0) {
+      btn.textContent = 'No More Contacts';
+      btn.disabled = true;
+      setTimeout(() => {
+        btn.textContent = 'Load More Contacts';
+        btn.disabled = false;
+        document.getElementById('load-more-wrap').classList.add('hidden');
+      }, 2000);
+      return;
+    }
+
+    renderAiResults(data, true);
+  } catch (err) {
+    loadingEl.classList.add('hidden');
+    btn.disabled = false;
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+  }
 });
 
 // Outreach form submission

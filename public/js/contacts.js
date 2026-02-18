@@ -69,7 +69,7 @@ function renderContactsTable(contacts) {
     tr.addEventListener('click', () => openContactDetail(c.id));
     tr.innerHTML = `
       <td><div class="contact-name-cell"><img class="avatar avatar-sm" src="${getPhotoUrl(c, 64)}" alt=""><strong>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</strong></div></td>
-      <td>${renderWarmthScore(c.warmth_score)}</td>
+      <td>${renderWarmthScore(c.warmth_score, c.warmth_score_reason)}</td>
       <td>${escapeHtml(c.email || '')}</td>
       <td>${escapeHtml(c.phone || '')}</td>
       <td>${formatDate(c.last_outreach_date)}</td>
@@ -151,7 +151,7 @@ function renderContactModal(contact) {
         </label>
       </div>
       <div style="margin-top:8px;text-align:center;">
-        <span style="font-size:12px;color:var(--gray-500);margin-right:4px;">Warmth:</span>${renderWarmthScore(contact.warmth_score)}
+        <span style="font-size:12px;color:var(--gray-500);margin-right:4px;">Warmth:</span>${renderWarmthScore(contact.warmth_score, contact.warmth_score_reason)}
       </div>
     </div>
     <form id="contact-edit-form" data-id="${contact.id}">
