@@ -72,7 +72,7 @@ function renderCarousel() {
     tile.innerHTML = `
       <img class="carousel-photo" src="${photoSrc}" alt="${escapeHtml(displayName)}">
       <div class="carousel-name">${escapeHtml(displayName)}</div>
-      <div class="carousel-score">${renderWarmthScore(score, c.warmth_score_reason)}</div>
+      <div class="carousel-score"><span style="font-size:12px;color:var(--gray-500);margin-right:4px;">Warmth:</span>${renderWarmthScore(score, c.warmth_score_reason)}</div>
     `;
     tile.addEventListener('click', () => {
       if (typeof openContactDetail === 'function') openContactDetail(c.id);
