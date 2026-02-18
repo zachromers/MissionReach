@@ -527,6 +527,58 @@ input:focus, textarea:focus, select:focus {
   border-left: 3px solid var(--blue-500);
 }
 
+/* Draft action buttons */
+.draft-actions-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.btn-generate-draft {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border: 1.5px solid var(--gray-300);
+  background: var(--white);
+  color: var(--gray-700);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.btn-generate-draft:hover {
+  background: var(--blue-50);
+  border-color: var(--blue-500);
+  color: var(--blue-700);
+}
+
+.btn-generate-draft:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-generate-draft.btn-generate-all {
+  background: var(--blue-600);
+  color: var(--white);
+  border-color: var(--blue-600);
+}
+
+.btn-generate-draft.btn-generate-all:hover {
+  background: var(--blue-700);
+  border-color: var(--blue-700);
+}
+
+.btn-generate-draft.btn-generate-all:disabled {
+  opacity: 0.55;
+}
+
 .draft-section {
   margin-top: 12px;
 }

@@ -220,23 +220,15 @@ When responding, you MUST return valid JSON in this exact format:
   "contacts": [
     {
       "contact_id": <integer>,
-      "reason": "Why this specific person was selected",
-      "email_draft": {
-        "subject": "Email subject line",
-        "body": "Full email body — warm, personal, and ministry-appropriate"
-      },
-      "sms_draft": "Short, casual text message — 2-3 sentences max"
+      "reason": "Why this specific person was selected"
     }
   ]
 }
 
-Guidelines for drafts:
-- Use the missionary's name as the sender
-- Reference specific details about the contact's history where available
-- Email tone: warm, professional, grateful, ministry-appropriate
-- SMS tone: friendly, casual, brief
-- Never be pushy about donations — focus on relationship and gratitude
-- If the prompt is about lapsed donors, frame outreach around reconnection, not asking for money`;
+Guidelines:
+- Select the most relevant contacts based on the user's request
+- Provide a clear, specific reason for each contact
+- Focus on relationship context and outreach history`;
 
   const client = new Anthropic({ apiKey });
   const modelKey = settings.claude_model || 'sonnet';
@@ -499,6 +491,13 @@ async function generateOutreachDraft(contactId, mode) {
 
   const modeLabel = mode || 'email';
 
+  const modeGuidance = {
+    email: 'Write a warm, professional email. Include a subject line. Tone: grateful, ministry-appropriate, personal.',
+    sms: 'Write a short, casual text message — 2-3 sentences max. Friendly and brief.',
+    video: 'Write a scripted video message (1-2 minutes when spoken aloud). Personal, heartfelt, and conversational — as if recording a personal video for this person. Include natural pauses and transitions.',
+    call: 'Write a call script with talking points and suggested flow. Include an opening, key points to cover, and a natural closing. Keep it conversational, not robotic.',
+  };
+
   const systemPrompt = `You are an outreach assistant for a missionary. Generate a draft ${modeLabel} message for a specific contact.
 
 Here is context about the missionary:
@@ -508,13 +507,12 @@ Context: ${settings.missionary_context || 'Not provided'}
 Here is the contact's information:
 ${JSON.stringify(contactData, null, 2)}
 
-Write a warm, personal ${modeLabel} draft for this contact. Reference specific details about their history when available.
+${modeGuidance[modeLabel] || modeGuidance.email}
+
+Reference specific details about their history when available.
 
 Guidelines:
 - Use the missionary's name as the sender
-- Email tone: warm, professional, grateful, ministry-appropriate
-- SMS/text tone: friendly, casual, brief (2-3 sentences)
-- Call notes: suggest talking points
 - Never be pushy about donations — focus on relationship and gratitude
 - If the contact is a lapsed donor, frame outreach around reconnection, not asking for money
 

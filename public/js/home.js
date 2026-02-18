@@ -216,6 +216,7 @@ document.getElementById('btn-generate').addEventListener('click', async () => {
 let lastAiResults = null;
 let lastPrompt = '';
 let excludedContactIds = [];
+const generatedDrafts = new Map(); // key: "contactId-mode", value: { subject, content }
 
 function renderAiResults(data, append) {
   if (append && lastAiResults) {
@@ -223,6 +224,7 @@ function renderAiResults(data, append) {
   } else {
     lastAiResults = data;
     excludedContactIds = [];
+    generatedDrafts.clear();
   }
 
   // Track all shown contact IDs for future exclusion
@@ -256,16 +258,15 @@ function renderAiResults(data, append) {
   for (const rec of newContacts) {
     const c = rec.contact || {};
     const name = `${c.first_name || ''} ${c.last_name || ''}`.trim() || `Contact #${rec.contact_id}`;
-    const emailDraft = rec.email_draft || {};
-    const smsDraft = rec.sms_draft || '';
 
     const card = document.createElement('div');
     card.className = 'result-card';
+    card.dataset.contactId = rec.contact_id;
     const photoSrc = getPhotoUrl(c, 64);
     card.innerHTML = `
       <div class="result-card-header">
         <div class="result-card-name"><img class="avatar avatar-sm" src="${photoSrc}" alt=""><h3>${escapeHtml(name)}</h3></div>
-        <button class="btn btn-sm btn-log-outreach" data-contact-id="${rec.contact_id}" data-mode="email" data-email="${escapeHtml(c.email || '')}" data-subject="${escapeHtml(emailDraft.subject || '')}" data-content="${escapeHtml(emailDraft.body || '')}">Log This Outreach</button>
+        <button class="btn btn-sm btn-log-outreach" data-contact-id="${rec.contact_id}" data-email="${escapeHtml(c.email || '')}">Log This Outreach</button>
       </div>
       <div class="result-meta">
         <span>Warmth: ${renderWarmthScore(c.warmth_score, c.warmth_score_reason)}</span>
@@ -274,46 +275,51 @@ function renderAiResults(data, append) {
         <span>Last Donation: ${formatDate(c.last_donation_date)} ${c.last_donation_amount ? formatCurrency(c.last_donation_amount) : ''}</span>
       </div>
       <div class="result-reason">${escapeHtml(rec.reason || '')}</div>
-      <details class="draft-section">
-        <summary>
-          <div class="draft-header">
-            <span>Email Draft</span>
-          </div>
-        </summary>
-        <div class="draft-content">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <strong>Subject: ${escapeHtml(emailDraft.subject || '')}</strong>
-            <span class="draft-actions">
-              ${c.email ? `<a class="copy-btn send-email-btn" href="${buildMailtoLink(c.email, emailDraft.subject || '', emailDraft.body || '')}" title="Open in your email client">Send Email</a>` : ''}
-              <button class="copy-btn" onclick="copyToClipboard(this.closest('.draft-content').querySelector('.draft-body').textContent, this)">Copy</button>
-            </span>
-          </div>
-          <div class="draft-body">${escapeHtml(emailDraft.body || '')}</div>
-        </div>
-      </details>
-      <details class="draft-section">
-        <summary>
-          <div class="draft-header">
-            <span>SMS Draft</span>
-          </div>
-        </summary>
-        <div class="draft-content">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <span></span>
-            <button class="copy-btn" onclick="copyToClipboard(this.closest('.draft-content').querySelector('.sms-body').textContent, this)">Copy</button>
-          </div>
-          <div class="sms-body">${escapeHtml(smsDraft)}</div>
-        </div>
-      </details>
+      <div class="draft-actions-bar">
+        <button class="btn-generate-draft" data-contact-id="${rec.contact_id}" data-mode="email">Generate Email Draft</button>
+        <button class="btn-generate-draft" data-contact-id="${rec.contact_id}" data-mode="sms">Generate SMS Draft</button>
+        <button class="btn-generate-draft" data-contact-id="${rec.contact_id}" data-mode="video">Generate Video Script</button>
+        <button class="btn-generate-draft" data-contact-id="${rec.contact_id}" data-mode="call">Generate Call Script</button>
+        <button class="btn-generate-draft btn-generate-all" data-contact-id="${rec.contact_id}" data-mode="all">Generate All</button>
+      </div>
+      <div class="drafts-container"></div>
     `;
-    // Attach log outreach listener to this card
+
+    // Attach draft generation listeners
+    card.querySelectorAll('.btn-generate-draft').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const contactId = btn.dataset.contactId;
+        const mode = btn.dataset.mode;
+        if (mode === 'all') {
+          generateAllForContact(contactId, card);
+        } else {
+          generateDraftForContact(contactId, mode, btn, card);
+        }
+      });
+    });
+
+    // Attach log outreach listener
     card.querySelector('.btn-log-outreach').addEventListener('click', (e) => {
       const btn = e.currentTarget;
-      document.getElementById('outreach-contact-id').value = btn.dataset.contactId;
+      const contactId = btn.dataset.contactId;
+      // Pre-fill with the first available generated draft
+      let prefillMode = 'email';
+      let prefillSubject = '';
+      let prefillContent = '';
+      for (const m of ['email', 'sms', 'video', 'call']) {
+        const draft = generatedDrafts.get(`${contactId}-${m}`);
+        if (draft) {
+          prefillMode = m;
+          prefillSubject = draft.subject || '';
+          prefillContent = draft.content || '';
+          break;
+        }
+      }
+      document.getElementById('outreach-contact-id').value = contactId;
       document.getElementById('outreach-contact-email').value = btn.dataset.email || '';
-      document.getElementById('outreach-mode').value = btn.dataset.mode || 'email';
-      document.getElementById('outreach-subject').value = btn.dataset.subject || '';
-      document.getElementById('outreach-content').value = btn.dataset.content || '';
+      document.getElementById('outreach-mode').value = prefillMode;
+      document.getElementById('outreach-subject').value = prefillSubject;
+      document.getElementById('outreach-content').value = prefillContent;
       updateSendEmailButton();
       showModal('outreach-modal');
     });
@@ -324,23 +330,126 @@ function renderAiResults(data, append) {
   resultsEl.classList.remove('hidden');
 }
 
-// Log all as outreach
+const DRAFT_MODE_LABELS = { email: 'Email Draft', sms: 'SMS Draft', video: 'Video Script', call: 'Call Script' };
+
+async function generateDraftForContact(contactId, mode, btnEl, cardEl) {
+  btnEl.disabled = true;
+  const originalText = btnEl.textContent;
+  btnEl.textContent = 'Generating...';
+
+  try {
+    const result = await api(`api/ai/generate-outreach/${contactId}`, {
+      method: 'POST',
+      body: { mode },
+    });
+
+    generatedDrafts.set(`${contactId}-${mode}`, result);
+
+    // Find or create the draft display in the card
+    const container = cardEl.querySelector('.drafts-container');
+    let existing = container.querySelector(`[data-draft-mode="${mode}"]`);
+    if (existing) existing.remove();
+
+    const rec = (lastAiResults.contacts || []).find(r => String(r.contact_id) === String(contactId));
+    const c = rec ? (rec.contact || {}) : {};
+
+    const details = document.createElement('details');
+    details.className = 'draft-section';
+    details.dataset.draftMode = mode;
+    details.open = true;
+
+    const subjectLine = mode === 'email' && result.subject
+      ? `<strong>Subject: ${escapeHtml(result.subject)}</strong>` : '';
+
+    const emailBtn = mode === 'email' && c.email && result.subject
+      ? `<a class="copy-btn send-email-btn" href="${buildMailtoLink(c.email, result.subject, result.content)}" title="Open in your email client">Send Email</a>` : '';
+
+    details.innerHTML = `
+      <summary>
+        <div class="draft-header">
+          <span>${DRAFT_MODE_LABELS[mode] || mode}</span>
+        </div>
+      </summary>
+      <div class="draft-content">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          ${subjectLine}
+          <span class="draft-actions">
+            ${emailBtn}
+            <button class="copy-btn" onclick="copyToClipboard(this.closest('.draft-content').querySelector('.draft-body').textContent, this)">Copy</button>
+          </span>
+        </div>
+        <div class="draft-body">${escapeHtml(result.content || '')}</div>
+      </div>
+    `;
+    container.appendChild(details);
+
+    btnEl.textContent = originalText;
+    btnEl.disabled = false;
+  } catch (err) {
+    alert(`Error generating ${mode} draft: ${err.message}`);
+    btnEl.textContent = originalText;
+    btnEl.disabled = false;
+  }
+}
+
+async function generateAllForContact(contactId, cardEl) {
+  const modes = ['email', 'sms', 'video', 'call'];
+  const allBtn = cardEl.querySelector('.btn-generate-all');
+  allBtn.disabled = true;
+  allBtn.textContent = 'Generating...';
+
+  const buttons = {};
+  cardEl.querySelectorAll('.btn-generate-draft').forEach(b => {
+    if (b.dataset.mode !== 'all') {
+      buttons[b.dataset.mode] = b;
+      b.disabled = true;
+      b.textContent = 'Generating...';
+    }
+  });
+
+  const promises = modes.map(mode =>
+    generateDraftForContact(contactId, mode, buttons[mode], cardEl).catch(() => {})
+  );
+
+  await Promise.all(promises);
+
+  allBtn.textContent = 'Generate All';
+  allBtn.disabled = false;
+}
+
+// Log all as outreach (only contacts with generated drafts)
 document.getElementById('btn-log-all').addEventListener('click', async () => {
   if (!lastAiResults || !lastAiResults.contacts) return;
+
+  // Collect contacts that have at least one generated draft
+  const contactsWithDrafts = [];
+  for (const rec of lastAiResults.contacts) {
+    for (const m of ['email', 'sms', 'video', 'call']) {
+      const draft = generatedDrafts.get(`${rec.contact_id}-${m}`);
+      if (draft) {
+        contactsWithDrafts.push({ contactId: rec.contact_id, mode: m, draft });
+        break; // log first available draft per contact
+      }
+    }
+  }
+
+  if (contactsWithDrafts.length === 0) {
+    alert('No drafts have been generated yet. Generate drafts first before logging.');
+    return;
+  }
 
   const btn = document.getElementById('btn-log-all');
   btn.disabled = true;
   btn.textContent = 'Logging...';
 
   try {
-    for (const rec of lastAiResults.contacts) {
-      const emailDraft = rec.email_draft || {};
-      await api(`api/contacts/${rec.contact_id}/outreaches`, {
+    for (const { contactId, mode, draft } of contactsWithDrafts) {
+      await api(`api/contacts/${contactId}/outreaches`, {
         method: 'POST',
         body: {
-          mode: 'email',
-          subject: emailDraft.subject || '',
-          content: emailDraft.body || '',
+          mode,
+          subject: draft.subject || '',
+          content: draft.content || '',
           ai_generated: true,
           status: 'completed',
         },
@@ -359,7 +468,7 @@ document.getElementById('btn-log-all').addEventListener('click', async () => {
   }
 });
 
-// Export drafts
+// Export drafts (only generated drafts)
 document.getElementById('btn-export-drafts').addEventListener('click', () => {
   if (!lastAiResults || !lastAiResults.contacts) return;
 
@@ -367,12 +476,28 @@ document.getElementById('btn-export-drafts').addEventListener('click', () => {
   for (const rec of lastAiResults.contacts) {
     const c = rec.contact || {};
     const name = `${c.first_name || ''} ${c.last_name || ''}`.trim();
-    const emailDraft = rec.email_draft || {};
+    const contactId = rec.contact_id;
+    let hasDraft = false;
 
-    text += `=== ${name} ===\n\n`;
-    text += `EMAIL:\nSubject: ${emailDraft.subject || ''}\n\n${emailDraft.body || ''}\n\n`;
-    text += `SMS:\n${rec.sms_draft || ''}\n\n`;
-    text += '---\n\n';
+    for (const [mode, label] of [['email', 'EMAIL'], ['sms', 'SMS'], ['video', 'VIDEO SCRIPT'], ['call', 'CALL SCRIPT']]) {
+      const draft = generatedDrafts.get(`${contactId}-${mode}`);
+      if (draft) {
+        if (!hasDraft) {
+          text += `=== ${name} ===\n\n`;
+          hasDraft = true;
+        }
+        text += `${label}:\n`;
+        if (draft.subject) text += `Subject: ${draft.subject}\n\n`;
+        text += `${draft.content || ''}\n\n`;
+      }
+    }
+
+    if (hasDraft) text += '---\n\n';
+  }
+
+  if (!text) {
+    alert('No drafts have been generated yet. Generate drafts first before exporting.');
+    return;
   }
 
   const blob = new Blob([text], { type: 'text/plain' });
