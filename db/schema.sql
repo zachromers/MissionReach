@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS contacts (
   notes TEXT,
   tags TEXT,
   photo_url TEXT,
+  warmth_score INTEGER,
+  warmth_score_updated_at DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

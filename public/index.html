@@ -44,6 +44,7 @@
         </div>
       </div>
 
+      <p id="warmth-status" class="hidden" style="text-align:center;color:var(--gray-400);font-size:13px;margin-bottom:12px;">Updating warmth scores...</p>
       <div class="prompt-section">
         <h1>Who should you reach out to?</h1>
         <p class="subtitle">Ask in plain English and get AI-powered outreach recommendations</p>
@@ -97,6 +98,7 @@
           <thead>
             <tr>
               <th data-sort="last_name">Name</th>
+              <th>Warmth</th>
               <th data-sort="email">Email</th>
               <th>Phone</th>
               <th data-sort="last_outreach_date">Last Contact</th>
@@ -128,6 +130,7 @@
           <thead>
             <tr class="search-col-headers">
               <th data-sort="last_name">Name</th>
+              <th>Warmth</th>
               <th data-sort="email">Email</th>
               <th data-sort="phone">Phone</th>
               <th data-sort="city">City</th>
@@ -141,6 +144,7 @@
             </tr>
             <tr class="search-filter-row">
               <td><input type="text" class="filter-input" data-filter="name_filter" placeholder="Name..."></td>
+              <td></td>
               <td><input type="text" class="filter-input" data-filter="email_filter" placeholder="Email..."></td>
               <td><input type="text" class="filter-input" data-filter="phone_filter" placeholder="Phone..."></td>
               <td><input type="text" class="filter-input" data-filter="city" placeholder="City..."></td>

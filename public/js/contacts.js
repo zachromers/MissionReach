@@ -60,7 +60,7 @@ function renderContactsTable(contacts) {
   tbody.innerHTML = '';
 
   if (contacts.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray-400);">No contacts found. Add or import contacts to get started.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400);">No contacts found. Add or import contacts to get started.</td></tr>';
     return;
   }
 
@@ -69,6 +69,7 @@ function renderContactsTable(contacts) {
     tr.addEventListener('click', () => openContactDetail(c.id));
     tr.innerHTML = `
       <td><div class="contact-name-cell"><img class="avatar avatar-sm" src="${getPhotoUrl(c, 64)}" alt=""><strong>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</strong></div></td>
+      <td>${renderWarmthScore(c.warmth_score)}</td>
       <td>${escapeHtml(c.email || '')}</td>
       <td>${escapeHtml(c.phone || '')}</td>
       <td>${formatDate(c.last_outreach_date)}</td>
@@ -148,6 +149,9 @@ function renderContactModal(contact) {
           <input type="file" id="photo-upload-input" accept="image/*" hidden>
           <span class="photo-upload-icon">&#x1F4F7;</span>
         </label>
+      </div>
+      <div style="margin-top:8px;text-align:center;">
+        <span style="font-size:12px;color:var(--gray-500);margin-right:4px;">Warmth:</span>${renderWarmthScore(contact.warmth_score)}
       </div>
     </div>
     <form id="contact-edit-form" data-id="${contact.id}">

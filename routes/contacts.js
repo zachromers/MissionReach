@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { getDb } = require('../db/database');
+const { generateSingleWarmthScore } = require('../services/aiService');
 
 // Configure multer for contact photo uploads
 const photosDir = path.join(__dirname, '..', 'public', 'uploads', 'photos');
@@ -336,6 +337,8 @@ router.post('/:id/donations', (req, res) => {
     ).run(req.params.id, amount, date, method || null, recurring ? 1 : 0, notes || null);
 
     const donation = db.prepare('SELECT * FROM donations WHERE id = ?').get(result.lastInsertRowid);
+    // Fire-and-forget warmth score update
+    generateSingleWarmthScore(req.params.id).catch(() => {});
     res.status(201).json(donation);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -373,6 +376,8 @@ router.post('/:id/outreaches', (req, res) => {
     );
 
     const outreach = db.prepare('SELECT * FROM outreaches WHERE id = ?').get(result.lastInsertRowid);
+    // Fire-and-forget warmth score update
+    generateSingleWarmthScore(req.params.id).catch(() => {});
     res.status(201).json(outreach);
   } catch (err) {
     res.status(500).json({ error: err.message });

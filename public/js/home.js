@@ -5,6 +5,26 @@ const MODEL_LABELS = { haiku: 'Claude Haiku', sonnet: 'Claude Sonnet', opus: 'Cl
 function initHome() {
   loadDashboardStats();
   loadModelIndicator();
+  refreshWarmthScores();
+}
+
+async function refreshWarmthScores() {
+  try {
+    const statusEl = document.getElementById('warmth-status');
+    if (statusEl) statusEl.classList.remove('hidden');
+    const result = await api('api/ai/warmth-scores', { method: 'POST' });
+    if (statusEl) statusEl.classList.add('hidden');
+    // If scores were updated and contacts or search tab is visible, refresh data
+    if (result.updated && result.count > 0) {
+      const contactsPage = document.getElementById('page-contacts');
+      const searchPage = document.getElementById('page-search');
+      if (contactsPage && contactsPage.classList.contains('active')) loadContacts();
+      if (searchPage && searchPage.classList.contains('active')) loadSearchResults();
+    }
+  } catch {
+    const statusEl = document.getElementById('warmth-status');
+    if (statusEl) statusEl.classList.add('hidden');
+  }
 }
 
 async function loadModelIndicator() {
@@ -169,6 +189,7 @@ function renderAiResults(data) {
         <button class="btn btn-sm btn-log-outreach" data-contact-id="${rec.contact_id}" data-mode="email" data-subject="${escapeHtml(emailDraft.subject || '')}" data-content="${escapeHtml(emailDraft.body || '')}">Log This Outreach</button>
       </div>
       <div class="result-meta">
+        <span>Warmth: ${renderWarmthScore(c.warmth_score)}</span>
         <span>Relationship: ${escapeHtml(c.relationship || '—')}</span>
         <span>Last Contact: ${formatDate(c.last_outreach_date)}</span>
         <span>Last Donation: ${formatDate(c.last_donation_date)} ${c.last_donation_amount ? formatCurrency(c.last_donation_amount) : ''}</span>

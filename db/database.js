@@ -152,6 +152,15 @@ async function initialize() {
     _saveDb();
   }
 
+  // Migrate: add warmth_score columns if missing
+  try {
+    db.prepare('SELECT warmth_score FROM contacts LIMIT 1').get();
+  } catch (e) {
+    db._db.run('ALTER TABLE contacts ADD COLUMN warmth_score INTEGER');
+    db._db.run('ALTER TABLE contacts ADD COLUMN warmth_score_updated_at DATETIME');
+    _saveDb();
+  }
+
   // Backfill: generate default avatars for contacts without a photo
   const backgrounds = ['4f46e5','7c3aed','2563eb','0891b2','059669','d97706','dc2626','be185d'];
   const noPhoto = db.prepare("SELECT id, first_name, last_name FROM contacts WHERE photo_url IS NULL OR photo_url = ''").all();

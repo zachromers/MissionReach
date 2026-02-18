@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { processPrompt } = require('../services/aiService');
+const { processPrompt, generateWarmthScores } = require('../services/aiService');
 const { getDb } = require('../db/database');
 
 // POST /api/ai/prompt
@@ -56,6 +56,16 @@ router.get('/stats', (req, res) => {
       outreachesThisMonth,
       staleDays,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/ai/warmth-scores — batch update warmth scores
+router.post('/warmth-scores', async (req, res) => {
+  try {
+    const result = await generateWarmthScores();
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

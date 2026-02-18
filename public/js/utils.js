@@ -47,6 +47,12 @@ function getPhotoUrl(contact, size = 128) {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f46e5&color=fff&size=${size}&bold=true`;
 }
 
+function renderWarmthScore(score) {
+  if (score == null) return '<span class="warmth-badge warmth-0">\u2014</span>';
+  const s = Math.max(1, Math.min(5, score));
+  return `<span class="warmth-badge warmth-${s}">${s}</span>`;
+}
+
 const MODE_ICONS = {
   email: '\u{1F4E7}',
   sms: '\u{1F4AC}',

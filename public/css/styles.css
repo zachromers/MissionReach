@@ -955,7 +955,7 @@ input:focus, textarea:focus, select:focus {
 
 .search-table {
   width: 100%;
-  min-width: 1200px;
+  min-width: 1280px;
   border-collapse: separate;
   border-spacing: 0;
   background: var(--white);
@@ -1062,6 +1062,50 @@ input:focus, textarea:focus, select:focus {
   margin-bottom: 12px;
   display: flex;
   align-items: center;
+}
+
+/* Warmth Score Badge */
+.warmth-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 13px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.warmth-0 {
+  color: var(--gray-400);
+  background: transparent;
+}
+
+.warmth-1 {
+  background: var(--gray-200);
+  color: var(--gray-600);
+}
+
+.warmth-2 {
+  background: #dbeafe;
+  color: var(--blue-500);
+}
+
+.warmth-3 {
+  background: #fef3c7;
+  color: #eab308;
+}
+
+.warmth-4 {
+  background: #ffedd5;
+  color: #f97316;
+}
+
+.warmth-5 {
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 /* Utility */

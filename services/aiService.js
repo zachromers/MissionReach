@@ -291,4 +291,151 @@ Guidelines for drafts:
   return parsed;
 }
 
-module.exports = { processPrompt };
+async function generateWarmthScores() {
+  const settings = getSettings();
+  const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
+  if (!apiKey) return { updated: false };
+
+  const db = getDb();
+
+  // Find contacts with stale or missing warmth scores
+  const staleContacts = db.prepare(`
+    SELECT c.id, c.first_name, c.last_name, c.relationship, c.tags,
+      (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) as total_donated,
+      (SELECT COUNT(*) FROM donations d WHERE d.contact_id = c.id) as donation_count,
+      (SELECT CAST(julianday('now') - julianday(MAX(d.date)) AS INTEGER) FROM donations d WHERE d.contact_id = c.id) as days_since_last_donation,
+      (SELECT COUNT(*) FROM outreaches o WHERE o.contact_id = c.id) as outreach_count,
+      (SELECT CAST(julianday('now') - julianday(MAX(o.date)) AS INTEGER) FROM outreaches o WHERE o.contact_id = c.id) as days_since_last_contact
+    FROM contacts c
+    WHERE c.warmth_score_updated_at IS NULL
+       OR c.warmth_score_updated_at < datetime('now', '-24 hours')
+  `).all();
+
+  if (staleContacts.length === 0) return { updated: false, count: 0 };
+
+  const client = new Anthropic({ apiKey });
+  const BATCH_SIZE = 30;
+  let totalUpdated = 0;
+
+  for (let i = 0; i < staleContacts.length; i += BATCH_SIZE) {
+    const batch = staleContacts.slice(i, i + BATCH_SIZE);
+    const contactSummaries = batch.map(c => ({
+      id: c.id,
+      name: `${c.first_name} ${c.last_name}`,
+      relationship: c.relationship,
+      tags: c.tags,
+      total_donated: c.total_donated,
+      donation_count: c.donation_count,
+      days_since_last_donation: c.days_since_last_donation,
+      outreach_count: c.outreach_count,
+      days_since_last_contact: c.days_since_last_contact,
+    }));
+
+    try {
+      const response = await client.messages.create({
+        model: MODEL_MAP.haiku,
+        max_tokens: 1024,
+        system: `You score missionary contacts on how likely they are to donate today, 1-5 scale:
+1 = Very unlikely (no relationship/history, never donated)
+2 = Unlikely (minimal engagement)
+3 = Moderate (some history, could go either way)
+4 = Likely (active relationship, recent engagement)
+5 = Very likely (strong donor, recent activity, warm relationship)
+
+Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5> }] }`,
+        messages: [{ role: 'user', content: `Score these contacts:\n${JSON.stringify(contactSummaries)}` }],
+      });
+
+      const text = response.content[0].text;
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+      }
+
+      if (parsed && parsed.scores) {
+        const updateStmt = db.prepare('UPDATE contacts SET warmth_score = ?, warmth_score_updated_at = datetime(\'now\') WHERE id = ?');
+        for (const entry of parsed.scores) {
+          const score = Math.max(1, Math.min(5, Math.round(entry.score)));
+          updateStmt.run(score, entry.id);
+          totalUpdated++;
+        }
+      }
+    } catch (err) {
+      console.error('Warmth score batch error:', err.message);
+    }
+  }
+
+  return { updated: true, count: totalUpdated };
+}
+
+async function generateSingleWarmthScore(contactId) {
+  const settings = getSettings();
+  const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
+  if (!apiKey) return;
+
+  const db = getDb();
+
+  const c = db.prepare(`
+    SELECT c.id, c.first_name, c.last_name, c.relationship, c.tags,
+      (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) as total_donated,
+      (SELECT COUNT(*) FROM donations d WHERE d.contact_id = c.id) as donation_count,
+      (SELECT CAST(julianday('now') - julianday(MAX(d.date)) AS INTEGER) FROM donations d WHERE d.contact_id = c.id) as days_since_last_donation,
+      (SELECT COUNT(*) FROM outreaches o WHERE o.contact_id = c.id) as outreach_count,
+      (SELECT CAST(julianday('now') - julianday(MAX(o.date)) AS INTEGER) FROM outreaches o WHERE o.contact_id = c.id) as days_since_last_contact
+    FROM contacts c
+    WHERE c.id = ?
+  `).get(contactId);
+
+  if (!c) return;
+
+  const client = new Anthropic({ apiKey });
+
+  try {
+    const contactSummary = {
+      id: c.id,
+      name: `${c.first_name} ${c.last_name}`,
+      relationship: c.relationship,
+      tags: c.tags,
+      total_donated: c.total_donated,
+      donation_count: c.donation_count,
+      days_since_last_donation: c.days_since_last_donation,
+      outreach_count: c.outreach_count,
+      days_since_last_contact: c.days_since_last_contact,
+    };
+
+    const response = await client.messages.create({
+      model: MODEL_MAP.haiku,
+      max_tokens: 256,
+      system: `You score missionary contacts on how likely they are to donate today, 1-5 scale:
+1 = Very unlikely (no relationship/history, never donated)
+2 = Unlikely (minimal engagement)
+3 = Moderate (some history, could go either way)
+4 = Likely (active relationship, recent engagement)
+5 = Very likely (strong donor, recent activity, warm relationship)
+
+Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5> }] }`,
+      messages: [{ role: 'user', content: `Score this contact:\n${JSON.stringify(contactSummary)}` }],
+    });
+
+    const text = response.content[0].text;
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+    }
+
+    if (parsed && parsed.scores && parsed.scores[0]) {
+      const score = Math.max(1, Math.min(5, Math.round(parsed.scores[0].score)));
+      db.prepare('UPDATE contacts SET warmth_score = ?, warmth_score_updated_at = datetime(\'now\') WHERE id = ?').run(score, contactId);
+    }
+  } catch (err) {
+    console.error('Single warmth score error:', err.message);
+  }
+}
+
+module.exports = { processPrompt, generateWarmthScores, generateSingleWarmthScore };

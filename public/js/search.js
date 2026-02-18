@@ -96,7 +96,7 @@ function renderSearchTable(contacts) {
   tbody.innerHTML = '';
 
   if (contacts.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--gray-400);">No contacts match your filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:32px;color:var(--gray-400);">No contacts match your filters.</td></tr>';
     return;
   }
 
@@ -105,6 +105,7 @@ function renderSearchTable(contacts) {
     tr.addEventListener('click', () => openContactDetail(c.id));
     tr.innerHTML = `
       <td><div class="contact-name-cell"><img class="avatar avatar-sm" src="${getPhotoUrl(c, 64)}" alt=""><span>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</span></div></td>
+      <td>${renderWarmthScore(c.warmth_score)}</td>
       <td>${escapeHtml(c.email || '')}</td>
       <td>${escapeHtml(c.phone || '')}</td>
       <td>${escapeHtml(c.city || '')}</td>
