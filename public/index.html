@@ -36,14 +36,11 @@
 
       <p id="warmth-status" class="hidden" style="text-align:center;color:var(--gray-400);font-size:13px;margin-bottom:12px;">Updating warmth scores...</p>
       <div class="prompt-section">
-        <h1>Who should you reach out to?</h1>
-        <p class="subtitle">Ask in plain English and get AI-powered outreach recommendations</p>
+        <h1>Recommended Outreach for Today</h1>
 
-        <div class="daily-prompt">
-          <p class="daily-prompt-label">Recommended outreach for today</p>
-          <button class="chip" id="daily-chip"></button>
-        </div>
+        <div class="daily-prompt" id="daily-chips"></div>
 
+        <p class="subtitle">If you would like to create custom outreach recommendation, enter a population filter below</p>
         <textarea id="ai-prompt" placeholder='e.g. "Who used to donate monthly but stopped in the last 6 months?"' rows="4"></textarea>
         <button id="btn-generate" class="btn btn-primary">Generate Recommendations</button>
         <p id="model-indicator" class="model-indicator"></p>

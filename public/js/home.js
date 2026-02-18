@@ -143,17 +143,25 @@ const DAILY_PROMPTS = [
   "People I should reconnect with before the end of the quarter",
 ];
 
-function getDailyPrompt() {
+function getDailyPrompts(count) {
   const today = new Date();
   const dayIndex = Math.floor(today.getTime() / (1000 * 60 * 60 * 24));
-  return DAILY_PROMPTS[dayIndex % DAILY_PROMPTS.length];
+  const prompts = [];
+  for (let i = 0; i < count; i++) {
+    prompts.push(DAILY_PROMPTS[(dayIndex * count + i) % DAILY_PROMPTS.length]);
+  }
+  return prompts;
 }
 
-const dailyChip = document.getElementById('daily-chip');
-const dailyPrompt = getDailyPrompt();
-dailyChip.textContent = dailyPrompt;
-dailyChip.addEventListener('click', () => {
-  document.getElementById('ai-prompt').value = dailyPrompt;
+const dailyChipsContainer = document.getElementById('daily-chips');
+getDailyPrompts(3).forEach(prompt => {
+  const btn = document.createElement('button');
+  btn.className = 'chip';
+  btn.textContent = prompt;
+  btn.addEventListener('click', () => {
+    document.getElementById('ai-prompt').value = prompt;
+  });
+  dailyChipsContainer.appendChild(btn);
 });
 
 // Enter key in prompt textarea triggers generation

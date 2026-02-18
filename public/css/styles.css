@@ -405,6 +405,10 @@ input:focus, textarea:focus, select:focus {
 }
 
 .daily-prompt {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
   margin-bottom: 16px;
 }
 
@@ -421,9 +425,9 @@ input:focus, textarea:focus, select:focus {
   background: var(--blue-50);
   border: 1px solid var(--blue-200);
   color: var(--blue-700);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 13px;
+  padding: 10px 22px;
+  border-radius: 26px;
+  font-size: 19px;
   cursor: pointer;
   transition: all 0.2s;
   font-family: inherit;
