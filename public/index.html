@@ -140,14 +140,16 @@
             <tr class="search-filter-row">
               <td><input type="text" class="filter-input" data-filter="name_filter" placeholder="Name..."></td>
               <td>
-                <select class="filter-input" data-filter="warmth_min">
-                  <option value="">All</option>
-                  <option value="1">1+</option>
-                  <option value="2">2+</option>
-                  <option value="3">3+</option>
-                  <option value="4">4+</option>
-                  <option value="5">5</option>
-                </select>
+                <div class="warmth-multiselect" data-filter="warmth_scores">
+                  <button type="button" class="filter-input warmth-multiselect-btn">All</button>
+                  <div class="warmth-multiselect-dropdown">
+                    <label><input type="checkbox" value="1"><span class="warmth-badge warmth-1">1</span></label>
+                    <label><input type="checkbox" value="2"><span class="warmth-badge warmth-2">2</span></label>
+                    <label><input type="checkbox" value="3"><span class="warmth-badge warmth-3">3</span></label>
+                    <label><input type="checkbox" value="4"><span class="warmth-badge warmth-4">4</span></label>
+                    <label><input type="checkbox" value="5"><span class="warmth-badge warmth-5">5</span></label>
+                  </div>
+                </div>
               </td>
               <td><input type="text" class="filter-input" data-filter="email_filter" placeholder="Email..."></td>
               <td><input type="text" class="filter-input" data-filter="phone_filter" placeholder="Phone..."></td>

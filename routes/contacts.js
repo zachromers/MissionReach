@@ -43,7 +43,7 @@ function buildContactQuery(query) {
     donation_from, donation_to,
     total_donated_min, total_donated_max,
     has_email, has_phone,
-    warmth_min, tags_filter,
+    warmth_min, warmth_scores, tags_filter,
     stale_days, donated_since, contacted_since } = query;
 
   let sql = `
@@ -98,7 +98,13 @@ function buildContactQuery(query) {
     sql += ` AND c.relationship LIKE ?`;
     params.push(`%${relationship}%`);
   }
-  if (warmth_min) {
+  if (warmth_scores) {
+    const scores = String(warmth_scores).split(',').map(Number).filter(n => n >= 1 && n <= 5);
+    if (scores.length > 0) {
+      sql += ` AND c.warmth_score IN (${scores.map(() => '?').join(',')})`;
+      params.push(...scores);
+    }
+  } else if (warmth_min) {
     sql += ` AND c.warmth_score >= ?`;
     params.push(Number(warmth_min));
   }

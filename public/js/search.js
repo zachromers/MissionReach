@@ -12,6 +12,9 @@ function initSearch(extraParams) {
   document.querySelectorAll('#page-search .filter-input').forEach(input => {
     input.value = '';
   });
+  // Clear warmth multi-select checkboxes
+  clearWarmthMultiselect();
+
   searchSort = 'last_name';
   searchOrder = 'asc';
   document.querySelectorAll('#page-search .search-col-headers th').forEach(h => {
@@ -22,6 +25,11 @@ function initSearch(extraParams) {
     searchExtraParams = extraParams;
     // Pre-fill visible filter inputs where the key matches a data-filter attribute
     for (const [key, val] of Object.entries(extraParams)) {
+      if (key === 'warmth_scores') {
+        setWarmthMultiselect(String(val).split(','));
+        delete searchExtraParams[key];
+        continue;
+      }
       const input = document.querySelector(`#page-search .filter-input[data-filter="${key}"]`);
       if (input) {
         input.value = val;
@@ -69,6 +77,9 @@ function gatherSearchFilters() {
     const val = input.value.trim();
     if (key && val) params.set(key, val);
   });
+  // Warmth multi-select
+  const warmthVals = getWarmthMultiselectValues();
+  if (warmthVals.length > 0) params.set('warmth_scores', warmthVals.join(','));
   // Append any extra params from stat card navigation
   for (const [key, val] of Object.entries(searchExtraParams)) {
     if (val) params.set(key, val);
@@ -216,6 +227,7 @@ document.addEventListener('click', (e) => {
   document.querySelectorAll('#page-search .filter-input').forEach(input => {
     input.value = '';
   });
+  clearWarmthMultiselect();
   searchSort = 'last_name';
   searchOrder = 'asc';
   searchExtraParams = {};
@@ -265,4 +277,63 @@ document.addEventListener('click', async (e) => {
     .filter(Boolean)
     .join('\n');
   await copyToClipboard(phones, btn);
+});
+
+// --- Warmth multi-select helpers ---
+
+function getWarmthMultiselectValues() {
+  const container = document.querySelector('#page-search .warmth-multiselect');
+  if (!container) return [];
+  return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+}
+
+function clearWarmthMultiselect() {
+  const container = document.querySelector('#page-search .warmth-multiselect');
+  if (!container) return;
+  container.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+  updateWarmthButtonLabel(container);
+}
+
+function setWarmthMultiselect(values) {
+  const container = document.querySelector('#page-search .warmth-multiselect');
+  if (!container) return;
+  container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.checked = values.includes(cb.value);
+  });
+  updateWarmthButtonLabel(container);
+}
+
+function updateWarmthButtonLabel(container) {
+  const btn = container.querySelector('.warmth-multiselect-btn');
+  const checked = Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+  btn.textContent = checked.length === 0 ? 'All' : checked.join(', ');
+}
+
+// Toggle dropdown open/close
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.warmth-multiselect-btn');
+  const container = btn ? btn.closest('.warmth-multiselect') : null;
+
+  // Close all other open dropdowns
+  document.querySelectorAll('.warmth-multiselect.open').forEach(el => {
+    if (el !== container) el.classList.remove('open');
+  });
+
+  if (container) {
+    container.classList.toggle('open');
+    return;
+  }
+
+  // Close if click is outside any dropdown
+  if (!e.target.closest('.warmth-multiselect-dropdown')) {
+    document.querySelectorAll('.warmth-multiselect.open').forEach(el => el.classList.remove('open'));
+  }
+});
+
+// Handle checkbox changes inside the warmth dropdown
+document.addEventListener('change', (e) => {
+  const container = e.target.closest('.warmth-multiselect');
+  if (!container || e.target.type !== 'checkbox') return;
+  updateWarmthButtonLabel(container);
+  loadSearchResults();
 });

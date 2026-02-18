@@ -1156,6 +1156,54 @@ input:focus, textarea:focus, select:focus {
   color: var(--red-500);
 }
 
+/* Warmth multi-select dropdown */
+.warmth-multiselect {
+  position: relative;
+}
+
+.warmth-multiselect-btn {
+  text-align: left;
+  cursor: pointer;
+  background: var(--white);
+  min-width: 52px;
+}
+
+.warmth-multiselect-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.10);
+  padding: 4px 0;
+  min-width: 80px;
+}
+
+.warmth-multiselect.open .warmth-multiselect-dropdown {
+  display: block;
+}
+
+.warmth-multiselect-dropdown label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.warmth-multiselect-dropdown label:hover {
+  background: var(--gray-50);
+}
+
+.warmth-multiselect-dropdown input[type="checkbox"] {
+  margin: 0;
+}
+
 .search-table tbody td {
   padding: 10px 12px;
   font-size: 13px;
