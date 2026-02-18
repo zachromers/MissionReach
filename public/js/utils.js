@@ -112,6 +112,14 @@ function setupTopScroll(topScrollId, tableWrapId) {
   syncWidth();
 }
 
+// Build a mailto: link from email, subject, and body
+function buildMailtoLink(email, subject, body) {
+  const params = [];
+  if (subject) params.push('subject=' + encodeURIComponent(subject));
+  if (body) params.push('body=' + encodeURIComponent(body));
+  return 'mailto:' + encodeURIComponent(email) + (params.length ? '?' + params.join('&') : '');
+}
+
 // Copy text to clipboard
 async function copyToClipboard(text, btn) {
   try {

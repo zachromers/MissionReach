@@ -568,6 +568,17 @@ input:focus, textarea:focus, select:focus {
 
 .copy-btn:hover { background: var(--gray-100); }
 
+.draft-actions { display: flex; gap: 6px; }
+
+.send-email-btn {
+  background: var(--blue-600);
+  color: var(--white);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.send-email-btn:hover { background: var(--blue-700); }
+
 .reasoning-section {
   margin-top: 16px;
   background: var(--gray-50);

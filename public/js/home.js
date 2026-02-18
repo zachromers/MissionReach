@@ -283,7 +283,10 @@ function renderAiResults(data, append) {
         <div class="draft-content">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <strong>Subject: ${escapeHtml(emailDraft.subject || '')}</strong>
-            <button class="copy-btn" onclick="copyToClipboard(this.closest('.draft-content').querySelector('.draft-body').textContent, this)">Copy</button>
+            <span class="draft-actions">
+              ${c.email ? `<a class="copy-btn send-email-btn" href="${buildMailtoLink(c.email, emailDraft.subject || '', emailDraft.body || '')}" title="Open in your email client">Send Email</a>` : ''}
+              <button class="copy-btn" onclick="copyToClipboard(this.closest('.draft-content').querySelector('.draft-body').textContent, this)">Copy</button>
+            </span>
           </div>
           <div class="draft-body">${escapeHtml(emailDraft.body || '')}</div>
         </div>
