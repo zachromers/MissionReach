@@ -297,15 +297,15 @@ Guidelines for drafts:
   return parsed;
 }
 
-async function generateWarmthScores() {
+async function generateWarmthScores({ forceAll = false } = {}) {
   const settings = getSettings();
   const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
   if (!apiKey) return { updated: false };
 
   const db = getDb();
 
-  // Find contacts with stale or missing warmth scores
-  const staleContacts = db.prepare(`
+  // Find contacts to score — all contacts if forceAll, otherwise only stale/missing
+  const sql = `
     SELECT c.id, c.first_name, c.last_name, c.relationship, c.tags,
       (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) as total_donated,
       (SELECT COUNT(*) FROM donations d WHERE d.contact_id = c.id) as donation_count,
@@ -313,9 +313,9 @@ async function generateWarmthScores() {
       (SELECT COUNT(*) FROM outreaches o WHERE o.contact_id = c.id) as outreach_count,
       (SELECT CAST(julianday('now') - julianday(MAX(o.date)) AS INTEGER) FROM outreaches o WHERE o.contact_id = c.id) as days_since_last_contact
     FROM contacts c
-    WHERE c.warmth_score_updated_at IS NULL
-       OR c.warmth_score_updated_at < datetime('now', '-24 hours')
-  `).all();
+    ${forceAll ? '' : "WHERE c.warmth_score_updated_at IS NULL OR c.warmth_score_updated_at < datetime('now', '-24 hours')"}
+  `;
+  const staleContacts = db.prepare(sql).all();
 
   if (staleContacts.length === 0) return { updated: false, count: 0 };
 

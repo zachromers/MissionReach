@@ -400,10 +400,10 @@ document.getElementById('btn-load-more').addEventListener('click', async () => {
 
     const newContacts = data.contacts || [];
     if (newContacts.length === 0) {
-      btn.textContent = 'No More Contacts';
+      btn.textContent = 'No More Recommendations';
       btn.disabled = true;
       setTimeout(() => {
-        btn.textContent = 'Load More Contacts';
+        btn.textContent = 'Load More Recommendations';
         btn.disabled = false;
         document.getElementById('load-more-wrap').classList.add('hidden');
       }, 2000);

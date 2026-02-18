@@ -71,4 +71,14 @@ router.post('/warmth-scores', async (req, res) => {
   }
 });
 
+// POST /api/ai/warmth-scores/recalculate-all — recalculate all warmth scores
+router.post('/warmth-scores/recalculate-all', async (req, res) => {
+  try {
+    const result = await generateWarmthScores({ forceAll: true });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

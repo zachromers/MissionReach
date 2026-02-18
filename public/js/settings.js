@@ -37,3 +37,33 @@ document.getElementById('settings-form').addEventListener('submit', async (e) =>
   }
 });
 
+// Recalculate all warmth scores
+document.getElementById('btn-recalculate-warmth').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-recalculate-warmth');
+  const statusEl = document.getElementById('recalculate-warmth-status');
+
+  btn.disabled = true;
+  btn.textContent = 'Recalculating...';
+  statusEl.className = '';
+  statusEl.textContent = 'Recalculating warmth scores for all contacts. This may take a moment...';
+  statusEl.classList.remove('hidden');
+
+  try {
+    const result = await api('api/ai/warmth-scores/recalculate-all', { method: 'POST' });
+    if (result.updated) {
+      statusEl.textContent = `Done! Updated warmth scores for ${result.count} contact${result.count === 1 ? '' : 's'}.`;
+      statusEl.className = 'success';
+    } else {
+      statusEl.textContent = 'No contacts found to update. Make sure you have an API key configured.';
+      statusEl.className = 'error';
+    }
+  } catch (err) {
+    statusEl.textContent = 'Error: ' + err.message;
+    statusEl.className = 'error';
+  } finally {
+    statusEl.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Recalculate All Warmth Scores';
+  }
+});
+
