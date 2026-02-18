@@ -388,7 +388,17 @@ function openContactForm(contact) {
   body.querySelector('#contact-new-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.target));
+
     try {
+      // Check for duplicates first
+      const { duplicates } = await api('api/contacts/check-duplicates', { method: 'POST', body: data });
+
+      if (duplicates && duplicates.length > 0) {
+        showDuplicateWarning(data, duplicates);
+        return;
+      }
+
+      // No duplicates — create directly
       await api('api/contacts', { method: 'POST', body: data });
       hideModal('contact-modal');
       loadContacts();
@@ -398,6 +408,103 @@ function openContactForm(contact) {
   });
 
   showModal('contact-modal');
+}
+
+function showDuplicateWarning(newContactData, duplicates) {
+  const body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Potential Duplicate Found';
+
+  const reasonLabels = {
+    name: 'Name',
+    email: 'Email',
+    phone: 'Phone',
+    address: 'Address',
+  };
+
+  body.innerHTML = `
+    <div class="duplicate-warning">
+      <div class="duplicate-warning-banner">
+        <span class="duplicate-warning-icon">&#x26A0;</span>
+        <div>
+          <strong>Possible duplicate contact${duplicates.length > 1 ? 's' : ''} detected</strong>
+          <p>The contact you're adding matches ${duplicates.length} existing contact${duplicates.length > 1 ? 's' : ''}. Please review before continuing.</p>
+        </div>
+      </div>
+
+      <div class="duplicate-new-contact">
+        <h4>You're adding:</h4>
+        <div class="duplicate-contact-summary">
+          <strong>${escapeHtml(newContactData.first_name)} ${escapeHtml(newContactData.last_name)}</strong>
+          ${newContactData.email ? `<span>${escapeHtml(newContactData.email)}</span>` : ''}
+          ${newContactData.phone ? `<span>${escapeHtml(newContactData.phone)}</span>` : ''}
+          ${newContactData.address_line1 ? `<span>${escapeHtml(newContactData.address_line1)}</span>` : ''}
+        </div>
+      </div>
+
+      <h4 style="margin: 16px 0 8px;">Existing match${duplicates.length > 1 ? 'es' : ''}:</h4>
+      ${duplicates.map(d => {
+        const c = d.contact;
+        const reasons = d.reasons.map(r => reasonLabels[r] || r);
+        return `
+          <div class="duplicate-match-card">
+            <div class="duplicate-match-header">
+              <div class="contact-name-cell">
+                <img class="avatar avatar-sm" src="${getPhotoUrl(c, 64)}" alt="">
+                <strong>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</strong>
+              </div>
+              <div class="duplicate-match-reasons">
+                ${reasons.map(r => `<span class="duplicate-reason-pill">${r} match</span>`).join('')}
+              </div>
+            </div>
+            <div class="duplicate-match-details">
+              ${c.email ? `<span>Email: ${escapeHtml(c.email)}</span>` : ''}
+              ${c.phone ? `<span>Phone: ${escapeHtml(c.phone)}</span>` : ''}
+              ${c.address_line1 ? `<span>Address: ${escapeHtml(c.address_line1)}${c.city ? ', ' + escapeHtml(c.city) : ''}${c.state ? ', ' + escapeHtml(c.state) : ''}</span>` : ''}
+            </div>
+            <button type="button" class="btn btn-sm btn-edit-existing" data-id="${c.id}">Edit This Contact</button>
+          </div>
+        `;
+      }).join('')}
+
+      <div class="duplicate-actions">
+        <button type="button" class="btn" id="btn-dup-back">Back to Form</button>
+        <button type="button" class="btn btn-primary" id="btn-dup-add-anyway">Add as New Contact</button>
+      </div>
+    </div>
+  `;
+
+  // "Edit This Contact" buttons — open the existing contact detail
+  body.querySelectorAll('.btn-edit-existing').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openContactDetail(Number(btn.dataset.id));
+    });
+  });
+
+  // "Back to Form" — re-open the new contact form with data preserved
+  body.querySelector('#btn-dup-back').addEventListener('click', () => {
+    openContactForm(null);
+    // Re-populate form fields after the form renders
+    setTimeout(() => {
+      const form = document.getElementById('contact-new-form');
+      if (form) {
+        for (const [key, val] of Object.entries(newContactData)) {
+          const input = form.querySelector(`[name="${key}"]`);
+          if (input) input.value = val;
+        }
+      }
+    }, 0);
+  });
+
+  // "Add as New Contact" — skip duplicate check and create
+  body.querySelector('#btn-dup-add-anyway').addEventListener('click', async () => {
+    try {
+      await api('api/contacts', { method: 'POST', body: newContactData });
+      hideModal('contact-modal');
+      loadContacts();
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+  });
 }
 
 function openDonationForm(contactId) {

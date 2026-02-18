@@ -233,6 +233,74 @@ router.get('/:id', (req, res) => {
   }
 });
 
+// POST /api/contacts/check-duplicates — find potential duplicates before creating
+router.post('/check-duplicates', (req, res) => {
+  try {
+    const db = getDb();
+    const { first_name, last_name, email, phone, address_line1 } = req.body;
+    const duplicates = new Map(); // id -> { contact, reasons[] }
+
+    // Helper to normalize phone: strip everything except digits
+    function normalizePhone(p) {
+      return (p || '').replace(/\D/g, '');
+    }
+
+    // 1. Name match (case-insensitive)
+    if (first_name && last_name) {
+      const rows = db.prepare(
+        `SELECT * FROM contacts WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)`
+      ).all(first_name.trim(), last_name.trim());
+      for (const r of rows) {
+        if (!duplicates.has(r.id)) duplicates.set(r.id, { contact: r, reasons: [] });
+        duplicates.get(r.id).reasons.push('name');
+      }
+    }
+
+    // 2. Email match (case-insensitive, non-empty only)
+    if (email && email.trim()) {
+      const rows = db.prepare(
+        `SELECT * FROM contacts WHERE LOWER(email) = LOWER(?) AND email IS NOT NULL AND email != ''`
+      ).all(email.trim());
+      for (const r of rows) {
+        if (!duplicates.has(r.id)) duplicates.set(r.id, { contact: r, reasons: [] });
+        duplicates.get(r.id).reasons.push('email');
+      }
+    }
+
+    // 3. Phone match (normalized digits, non-empty only)
+    if (phone && phone.trim()) {
+      const normalized = normalizePhone(phone);
+      if (normalized.length >= 7) {
+        const rows = db.prepare(
+          `SELECT * FROM contacts WHERE phone IS NOT NULL AND phone != ''`
+        ).all();
+        for (const r of rows) {
+          if (normalizePhone(r.phone) === normalized) {
+            if (!duplicates.has(r.id)) duplicates.set(r.id, { contact: r, reasons: [] });
+            duplicates.get(r.id).reasons.push('phone');
+          }
+        }
+      }
+    }
+
+    // 4. Address match (case-insensitive on address_line1, non-empty only)
+    if (address_line1 && address_line1.trim()) {
+      const rows = db.prepare(
+        `SELECT * FROM contacts WHERE LOWER(address_line1) = LOWER(?) AND address_line1 IS NOT NULL AND address_line1 != ''`
+      ).all(address_line1.trim());
+      for (const r of rows) {
+        if (!duplicates.has(r.id)) duplicates.set(r.id, { contact: r, reasons: [] });
+        duplicates.get(r.id).reasons.push('address');
+      }
+    }
+
+    const results = Array.from(duplicates.values());
+    res.json({ duplicates: results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/contacts — create
 router.post('/', (req, res) => {
   try {

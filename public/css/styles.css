@@ -1216,6 +1216,120 @@ input:focus, textarea:focus, select:focus {
   color: #ef4444;
 }
 
+/* Duplicate Warning */
+.duplicate-warning-banner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #fffbeb;
+  border: 1.5px solid #fbbf24;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.duplicate-warning-banner p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--gray-600);
+}
+
+.duplicate-warning-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.duplicate-new-contact {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+}
+
+.duplicate-new-contact h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-500);
+  margin-bottom: 6px;
+}
+
+.duplicate-contact-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+}
+
+.duplicate-contact-summary span {
+  color: var(--gray-500);
+}
+
+.duplicate-contact-summary span::before {
+  content: '\00B7';
+  margin-right: 8px;
+  color: var(--gray-300);
+}
+
+.duplicate-match-card {
+  background: var(--white);
+  border: 1.5px solid var(--gray-200);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  transition: border-color 0.2s;
+}
+
+.duplicate-match-card:hover {
+  border-color: var(--blue-500);
+}
+
+.duplicate-match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.duplicate-match-reasons {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.duplicate-reason-pill {
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.duplicate-match-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 13px;
+  color: var(--gray-500);
+  margin-bottom: 10px;
+}
+
+.duplicate-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+}
+
 /* Utility */
 .hidden { display: none !important; }
 
