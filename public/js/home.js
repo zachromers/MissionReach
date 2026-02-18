@@ -310,7 +310,6 @@ function renderAiResults(data, append) {
       document.getElementById('outreach-mode').value = btn.dataset.mode || 'email';
       document.getElementById('outreach-subject').value = btn.dataset.subject || '';
       document.getElementById('outreach-content').value = btn.dataset.content || '';
-      document.getElementById('outreach-ai-generated').checked = true;
       showModal('outreach-modal');
     });
 
@@ -427,6 +426,33 @@ document.getElementById('btn-load-more').addEventListener('click', async () => {
   }
 });
 
+// Generate outreach draft button
+document.getElementById('btn-generate-outreach').addEventListener('click', async () => {
+  const contactId = document.getElementById('outreach-contact-id').value;
+  const mode = document.getElementById('outreach-mode').value;
+  const btn = document.getElementById('btn-generate-outreach');
+
+  if (!contactId) return;
+
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Generating...';
+
+  try {
+    const result = await api(`api/ai/generate-outreach/${contactId}`, {
+      method: 'POST',
+      body: { mode },
+    });
+    document.getElementById('outreach-subject').value = result.subject || '';
+    document.getElementById('outreach-content').value = result.content || '';
+  } catch (err) {
+    alert('Error generating outreach: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
+
 // Outreach form submission
 document.getElementById('outreach-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -439,7 +465,6 @@ document.getElementById('outreach-form').addEventListener('submit', async (e) =>
         mode: document.getElementById('outreach-mode').value,
         subject: document.getElementById('outreach-subject').value,
         content: document.getElementById('outreach-content').value,
-        ai_generated: document.getElementById('outreach-ai-generated').checked,
         status: 'completed',
       },
     });

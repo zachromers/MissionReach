@@ -143,17 +143,21 @@ function renderContactModal(contact) {
 
   body.innerHTML = `
     <div class="contact-photo-section">
-      <div class="contact-photo-wrapper">
-        <img class="avatar avatar-lg" id="contact-photo" src="${getPhotoUrl(contact, 256)}" alt="">
-        <label class="photo-upload-btn" title="Upload photo">
-          <input type="file" id="photo-upload-input" accept="image/*" hidden>
-          <span class="photo-upload-icon">&#x1F4F7;</span>
-        </label>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+        <div class="contact-photo-wrapper">
+          <img class="avatar avatar-lg" id="contact-photo" src="${getPhotoUrl(contact, 256)}" alt="">
+          <label class="photo-upload-btn" title="Upload photo">
+            <input type="file" id="photo-upload-input" accept="image/*" hidden>
+            <span class="photo-upload-icon">&#x1F4F7;</span>
+          </label>
+        </div>
+        <div style="margin-top:8px;text-align:center;">
+          <span style="font-size:12px;color:var(--gray-500);margin-right:4px;">Warmth:</span>${renderWarmthScore(contact.warmth_score, contact.warmth_score_reason)}
+        </div>
       </div>
-      <div style="margin-top:8px;text-align:center;">
-        <span style="font-size:12px;color:var(--gray-500);margin-right:4px;">Warmth:</span>${renderWarmthScore(contact.warmth_score, contact.warmth_score_reason)}
-        ${contact.warmth_score_reason ? `<div style="margin-top:4px;font-size:11px;color:var(--gray-500);line-height:1.4;">${escapeHtml(contact.warmth_score_reason)}</div>` : ''}
-      </div>
+      ${contact.warmth_score_reason ? `<div style="flex:1;display:flex;align-items:center;padding-left:16px;">
+        <p style="margin:0;font-size:12px;color:var(--gray-500);line-height:1.5;">${escapeHtml(contact.warmth_score_reason)}</p>
+      </div>` : ''}
     </div>
     <form id="contact-edit-form" data-id="${contact.id}">
       <div class="contact-form-grid">
@@ -304,7 +308,6 @@ function renderContactModal(contact) {
     document.getElementById('outreach-mode').value = 'email';
     document.getElementById('outreach-subject').value = '';
     document.getElementById('outreach-content').value = '';
-    document.getElementById('outreach-ai-generated').checked = false;
     showModal('outreach-modal');
   });
 

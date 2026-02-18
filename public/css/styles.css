@@ -740,7 +740,7 @@ input:focus, textarea:focus, select:focus {
 
 .contact-photo-section {
   display: flex;
-  justify-content: center;
+  align-items: center;
   margin-bottom: 20px;
 }
 

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { processPrompt, generateWarmthScores } = require('../services/aiService');
+const { processPrompt, generateWarmthScores, generateOutreachDraft } = require('../services/aiService');
 const { getDb } = require('../db/database');
 
 // POST /api/ai/prompt
@@ -75,6 +75,17 @@ router.post('/warmth-scores', async (req, res) => {
 router.post('/warmth-scores/recalculate-all', async (req, res) => {
   try {
     const result = await generateWarmthScores({ forceAll: true });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/ai/generate-outreach/:contactId — generate outreach draft for a single contact
+router.post('/generate-outreach/:contactId', async (req, res) => {
+  try {
+    const { mode } = req.body;
+    const result = await generateOutreachDraft(parseInt(req.params.contactId), mode || 'email');
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -450,4 +450,106 @@ Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reas
   }
 }
 
-module.exports = { processPrompt, generateWarmthScores, generateSingleWarmthScore };
+async function generateOutreachDraft(contactId, mode) {
+  const settings = getSettings();
+  const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
+
+  if (!apiKey) {
+    throw new Error('Please configure your Anthropic API key in Settings.');
+  }
+
+  const db = getDb();
+
+  const contact = db.prepare(`
+    SELECT c.*,
+      (SELECT MAX(o.date) FROM outreaches o WHERE o.contact_id = c.id) as last_outreach_date,
+      (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) as total_donated,
+      (SELECT COUNT(*) FROM donations d WHERE d.contact_id = c.id) as donation_count,
+      (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) as last_donation_date
+    FROM contacts c WHERE c.id = ?
+  `).get(contactId);
+
+  if (!contact) {
+    throw new Error('Contact not found.');
+  }
+
+  const outreaches = db.prepare(
+    'SELECT mode, subject, content, date FROM outreaches WHERE contact_id = ? ORDER BY date DESC LIMIT 10'
+  ).all(contactId);
+
+  const donations = db.prepare(
+    'SELECT amount, date, method FROM donations WHERE contact_id = ? ORDER BY date DESC LIMIT 10'
+  ).all(contactId);
+
+  const contactData = {
+    name: `${contact.first_name} ${contact.last_name}`,
+    email: contact.email,
+    phone: contact.phone,
+    organization: contact.organization,
+    relationship: contact.relationship,
+    tags: contact.tags,
+    notes: contact.notes,
+    last_outreach_date: contact.last_outreach_date,
+    total_donated: contact.total_donated,
+    donation_count: contact.donation_count,
+    last_donation_date: contact.last_donation_date,
+    recent_outreaches: outreaches,
+    recent_donations: donations,
+  };
+
+  const modeLabel = mode || 'email';
+
+  const systemPrompt = `You are an outreach assistant for a missionary. Generate a draft ${modeLabel} message for a specific contact.
+
+Here is context about the missionary:
+Name: ${settings.missionary_name || 'Not set'}
+Context: ${settings.missionary_context || 'Not provided'}
+
+Here is the contact's information:
+${JSON.stringify(contactData, null, 2)}
+
+Write a warm, personal ${modeLabel} draft for this contact. Reference specific details about their history when available.
+
+Guidelines:
+- Use the missionary's name as the sender
+- Email tone: warm, professional, grateful, ministry-appropriate
+- SMS/text tone: friendly, casual, brief (2-3 sentences)
+- Call notes: suggest talking points
+- Never be pushy about donations — focus on relationship and gratitude
+- If the contact is a lapsed donor, frame outreach around reconnection, not asking for money
+
+Return ONLY valid JSON in this exact format:
+{
+  "subject": "Email subject line (leave empty string for non-email modes)",
+  "content": "The full message body"
+}`;
+
+  const client = new Anthropic({ apiKey });
+  const modelKey = settings.claude_model || 'sonnet';
+  const model = MODEL_MAP[modelKey] || MODEL_MAP.sonnet;
+
+  const response = await client.messages.create({
+    model,
+    max_tokens: 1024,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: `Write a ${modeLabel} draft for ${contact.first_name} ${contact.last_name}.` }],
+  });
+
+  const responseText = response.content[0].text;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(responseText);
+  } catch {
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      parsed = JSON.parse(jsonMatch[0]);
+    } else {
+      throw new Error('Could not parse AI response.');
+    }
+  }
+
+  return { subject: parsed.subject || '', content: parsed.content || '' };
+}
+
+module.exports = { processPrompt, generateWarmthScores, generateSingleWarmthScore, generateOutreachDraft };
