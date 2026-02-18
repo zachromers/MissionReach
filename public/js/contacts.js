@@ -152,6 +152,7 @@ function renderContactModal(contact) {
       </div>
       <div style="margin-top:8px;text-align:center;">
         <span style="font-size:12px;color:var(--gray-500);margin-right:4px;">Warmth:</span>${renderWarmthScore(contact.warmth_score, contact.warmth_score_reason)}
+        ${contact.warmth_score_reason ? `<div style="margin-top:4px;font-size:11px;color:var(--gray-500);line-height:1.4;">${escapeHtml(contact.warmth_score_reason)}</div>` : ''}
       </div>
     </div>
     <form id="contact-edit-form" data-id="${contact.id}">

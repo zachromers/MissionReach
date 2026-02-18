@@ -444,6 +444,11 @@ document.getElementById('outreach-form').addEventListener('submit', async (e) =>
       },
     });
     hideModal('outreach-modal');
+    // Refresh contact detail modal if it's still open so the new outreach appears
+    const contactModal = document.getElementById('contact-modal');
+    if (contactModal && !contactModal.classList.contains('hidden')) {
+      openContactDetail(contactId);
+    }
     loadContactCarousel();
   } catch (err) {
     alert('Error: ' + err.message);
