@@ -11,7 +11,7 @@ router.use(requireAdmin);
 router.get('/users', (req, res) => {
   try {
     const db = getDb();
-    const users = db.prepare('SELECT id, username, display_name, role, created_at, updated_at FROM users ORDER BY id').all();
+    const users = db.prepare('SELECT id, username, display_name, email, role, created_at, updated_at FROM users ORDER BY id').all();
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -21,9 +21,17 @@ router.get('/users', (req, res) => {
 // POST /api/admin/users — create a user
 router.post('/users', (req, res) => {
   try {
-    const { username, display_name, role } = req.body;
+    const { username, email, display_name, role } = req.body;
     if (!username) {
       return res.status(400).json({ error: 'Username is required' });
+    }
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
     }
 
     const db = getDb();
@@ -32,14 +40,19 @@ router.post('/users', (req, res) => {
       return res.status(409).json({ error: 'Username already exists' });
     }
 
+    const existingEmail = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE').get(email);
+    if (existingEmail) {
+      return res.status(409).json({ error: 'Email already in use' });
+    }
+
     const DEFAULT_PASSWORD = 'password123';
     const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
     const validRole = role === 'admin' ? 'admin' : 'user';
     const result = db.prepare(
-      'INSERT INTO users (username, password_hash, display_name, role, must_change_password) VALUES (?, ?, ?, ?, 1)'
-    ).run(username, hash, display_name || null, validRole);
+      'INSERT INTO users (username, password_hash, display_name, email, role, must_change_password) VALUES (?, ?, ?, ?, ?, 1)'
+    ).run(username, hash, display_name || null, email, validRole);
 
-    const user = db.prepare('SELECT id, username, display_name, role, created_at, updated_at FROM users WHERE id = ?').get(result.lastInsertRowid);
+    const user = db.prepare('SELECT id, username, display_name, email, role, created_at, updated_at FROM users WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -53,12 +66,23 @@ router.put('/users/:id', (req, res) => {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const { username, password, display_name, role } = req.body;
+    const { username, password, display_name, email, role } = req.body;
 
     if (username && username !== user.username) {
       const existing = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE AND id != ?').get(username, req.params.id);
       if (existing) {
         return res.status(409).json({ error: 'Username already exists' });
+      }
+    }
+
+    if (email !== undefined && email !== null && email !== '') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+      const existingEmail = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id != ?').get(email, req.params.id);
+      if (existingEmail) {
+        return res.status(409).json({ error: 'Email already in use' });
       }
     }
 
@@ -82,6 +106,10 @@ router.put('/users/:id', (req, res) => {
       updates.push('display_name = ?');
       params.push(display_name || null);
     }
+    if (email !== undefined) {
+      updates.push('email = ?');
+      params.push(email || null);
+    }
     if (role) {
       updates.push('role = ?');
       params.push(role === 'admin' ? 'admin' : 'user');
@@ -95,7 +123,7 @@ router.put('/users/:id', (req, res) => {
     params.push(req.params.id);
     db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);
 
-    const updated = db.prepare('SELECT id, username, display_name, role, created_at, updated_at FROM users WHERE id = ?').get(req.params.id);
+    const updated = db.prepare('SELECT id, username, display_name, email, role, created_at, updated_at FROM users WHERE id = ?').get(req.params.id);
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });

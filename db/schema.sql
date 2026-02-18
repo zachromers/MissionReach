@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT NOT NULL UNIQUE COLLATE NOCASE,
   password_hash TEXT NOT NULL,
   display_name TEXT,
+  email TEXT COLLATE NOCASE,
   role TEXT NOT NULL DEFAULT 'user',
   must_change_password INTEGER NOT NULL DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

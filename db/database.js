@@ -219,6 +219,12 @@ async function initialize() {
     _saveDb();
   }
 
+  // --- Migrate: add email column to users if missing ---
+  if (!_hasColumn('users', 'email')) {
+    db._db.run('ALTER TABLE users ADD COLUMN email TEXT COLLATE NOCASE');
+    _saveDb();
+  }
+
   // --- Bootstrap admin user ---
   const adminUser = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
   if (!adminUser) {

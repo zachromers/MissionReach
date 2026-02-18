@@ -40,8 +40,70 @@ router.post('/login', (req, res) => {
       id: user.id,
       username: user.username,
       display_name: user.display_name,
+      email: user.email || null,
       role: user.role,
       must_change_password: !!user.must_change_password,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/register — self-registration (public)
+router.post('/register', (req, res) => {
+  try {
+    const { username, email, display_name, password, confirm_password } = req.body;
+
+    if (!username || !email || !display_name || !password || !confirm_password) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    if (password !== confirm_password) {
+      return res.status(400).json({ error: 'Passwords do not match' });
+    }
+
+    const db = getDb();
+
+    // Check username uniqueness
+    const existingUser = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(username);
+    if (existingUser) {
+      return res.status(409).json({ error: 'Username already exists' });
+    }
+
+    // Check email uniqueness
+    const existingEmail = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE').get(email);
+    if (existingEmail) {
+      return res.status(409).json({ error: 'Email already in use' });
+    }
+
+    const hash = bcrypt.hashSync(password, 10);
+    const result = db.prepare(
+      'INSERT INTO users (username, password_hash, display_name, email, role, must_change_password) VALUES (?, ?, ?, ?, ?, 0)'
+    ).run(username, hash, display_name, email, 'user');
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
+
+    const secret = getJwtSecret();
+    const token = jwt.sign({ userId: user.id }, secret, { expiresIn: TOKEN_EXPIRY });
+
+    res.cookie('token', token, COOKIE_OPTIONS);
+    res.status(201).json({
+      id: user.id,
+      username: user.username,
+      display_name: user.display_name,
+      email: user.email,
+      role: user.role,
+      must_change_password: false,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -63,6 +125,7 @@ router.get('/me', requireAuth, (req, res) => {
       id: user.id,
       username: user.username,
       display_name: user.display_name,
+      email: user.email || null,
       role: user.role,
       must_change_password: !!user.must_change_password,
     });

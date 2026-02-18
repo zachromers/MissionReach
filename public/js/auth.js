@@ -24,12 +24,22 @@ async function checkAuth() {
 
 function showLogin() {
   document.getElementById('login-page').classList.remove('hidden');
+  document.getElementById('register-page').classList.add('hidden');
   document.getElementById('app-shell').classList.add('hidden');
   document.getElementById('force-password-page').classList.add('hidden');
 }
 
+function showRegister() {
+  document.getElementById('login-page').classList.add('hidden');
+  document.getElementById('register-page').classList.remove('hidden');
+  document.getElementById('app-shell').classList.add('hidden');
+  document.getElementById('force-password-page').classList.add('hidden');
+  document.getElementById('register-display-name').focus();
+}
+
 function showForcePasswordChange() {
   document.getElementById('login-page').classList.add('hidden');
+  document.getElementById('register-page').classList.add('hidden');
   document.getElementById('app-shell').classList.add('hidden');
   document.getElementById('force-password-page').classList.remove('hidden');
   document.getElementById('force-new-password').focus();
@@ -37,6 +47,7 @@ function showForcePasswordChange() {
 
 function showApp() {
   document.getElementById('login-page').classList.add('hidden');
+  document.getElementById('register-page').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
   document.getElementById('force-password-page').classList.add('hidden');
 
@@ -170,6 +181,70 @@ async function handleForcePasswordChange(e) {
   }
 }
 
+async function handleRegister(e) {
+  e.preventDefault();
+  const errorEl = document.getElementById('register-error');
+  errorEl.classList.add('hidden');
+
+  const display_name = document.getElementById('register-display-name').value.trim();
+  const email = document.getElementById('register-email').value.trim();
+  const username = document.getElementById('register-username').value.trim();
+  const password = document.getElementById('register-password').value;
+  const confirm_password = document.getElementById('register-confirm-password').value;
+
+  if (!display_name || !email || !username || !password || !confirm_password) {
+    errorEl.textContent = 'Please fill in all fields.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  if (password.length < 6) {
+    errorEl.textContent = 'Password must be at least 6 characters.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  if (password !== confirm_password) {
+    errorEl.textContent = 'Passwords do not match.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    const res = await fetch('api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, display_name, password, confirm_password }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Registration failed.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+    currentUser = data;
+
+    // Clear form
+    document.getElementById('register-display-name').value = '';
+    document.getElementById('register-email').value = '';
+    document.getElementById('register-username').value = '';
+    document.getElementById('register-password').value = '';
+    document.getElementById('register-confirm-password').value = '';
+
+    showApp();
+
+    // Reset to home tab
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-tab="home"]').classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-home').classList.add('active');
+    initHome();
+  } catch (err) {
+    errorEl.textContent = 'Connection error. Please try again.';
+    errorEl.classList.remove('hidden');
+  }
+}
+
 async function handleLogout() {
   try {
     await fetch('api/auth/logout', { method: 'POST' });
@@ -181,6 +256,9 @@ async function handleLogout() {
 // Set up login form and logout button listeners
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('login-form').addEventListener('submit', handleLogin);
+  document.getElementById('register-form').addEventListener('submit', handleRegister);
   document.getElementById('force-password-form').addEventListener('submit', handleForcePasswordChange);
   document.getElementById('btn-logout').addEventListener('click', handleLogout);
+  document.getElementById('link-show-register').addEventListener('click', (e) => { e.preventDefault(); showRegister(); });
+  document.getElementById('link-show-login').addEventListener('click', (e) => { e.preventDefault(); showLogin(); });
 });

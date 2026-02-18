@@ -10,6 +10,7 @@ async function loadAdminUsers() {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><strong>${escapeHtml(user.username)}</strong></td>
+        <td>${escapeHtml(user.email || '—')}</td>
         <td>${escapeHtml(user.display_name || '—')}</td>
         <td><span class="tag-pill">${escapeHtml(user.role)}</span></td>
         <td>${formatDate(user.created_at)}</td>
@@ -31,6 +32,7 @@ function showUserForm(title, user) {
   document.getElementById('admin-form-title').textContent = title;
   document.getElementById('admin-user-id').value = user ? user.id : '';
   document.getElementById('admin-username').value = user ? user.username : '';
+  document.getElementById('admin-email').value = user ? (user.email || '') : '';
   document.getElementById('admin-password').value = '';
   document.getElementById('admin-display-name').value = user ? (user.display_name || '') : '';
   document.getElementById('admin-role').value = user ? user.role : 'user';
@@ -94,6 +96,7 @@ document.getElementById('admin-user-form').addEventListener('submit', async (e) 
   const userId = document.getElementById('admin-user-id').value;
   const data = {
     username: document.getElementById('admin-username').value.trim(),
+    email: document.getElementById('admin-email').value.trim(),
     display_name: document.getElementById('admin-display-name').value.trim(),
     role: document.getElementById('admin-role').value,
   };
