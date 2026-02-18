@@ -217,6 +217,61 @@ router.get('/', (req, res) => {
   }
 });
 
+// GET /api/contacts/find-all-duplicates — scan all contacts for duplicate pairs
+router.get('/find-all-duplicates', (req, res) => {
+  try {
+    const db = getDb();
+    const contacts = db.prepare('SELECT * FROM contacts').all();
+
+    function normalizePhone(p) {
+      return (p || '').replace(/\D/g, '');
+    }
+
+    const pairs = [];
+    for (let i = 0; i < contacts.length; i++) {
+      for (let j = i + 1; j < contacts.length; j++) {
+        const a = contacts[i];
+        const b = contacts[j];
+        const reasons = [];
+
+        // Name match
+        if (a.first_name && a.last_name && b.first_name && b.last_name &&
+            a.first_name.toLowerCase() === b.first_name.toLowerCase() &&
+            a.last_name.toLowerCase() === b.last_name.toLowerCase()) {
+          reasons.push('name');
+        }
+
+        // Email match
+        if (a.email && b.email &&
+            a.email.trim().toLowerCase() === b.email.trim().toLowerCase()) {
+          reasons.push('email');
+        }
+
+        // Phone match (normalized digits)
+        const phoneA = normalizePhone(a.phone);
+        const phoneB = normalizePhone(b.phone);
+        if (phoneA.length >= 7 && phoneA === phoneB) {
+          reasons.push('phone');
+        }
+
+        // Address match
+        if (a.address_line1 && b.address_line1 &&
+            a.address_line1.trim().toLowerCase() === b.address_line1.trim().toLowerCase()) {
+          reasons.push('address');
+        }
+
+        if (reasons.length > 0) {
+          pairs.push({ contactA: a, contactB: b, reasons });
+        }
+      }
+    }
+
+    res.json({ pairs });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/contacts/:id — single contact with history
 router.get('/:id', (req, res) => {
   try {

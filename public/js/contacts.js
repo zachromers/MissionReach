@@ -106,6 +106,34 @@ document.getElementById('btn-add-contact').addEventListener('click', () => {
   openContactForm(null);
 });
 
+// Find all duplicates
+document.getElementById('btn-find-duplicates').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-find-duplicates');
+  btn.disabled = true;
+  btn.textContent = 'Scanning...';
+  try {
+    const { pairs } = await api('api/contacts/find-all-duplicates');
+    if (!pairs || pairs.length === 0) {
+      document.getElementById('modal-title').textContent = 'Duplicate Check';
+      document.getElementById('modal-body').innerHTML = `
+        <div style="text-align:center;padding:32px;">
+          <div style="font-size:48px;margin-bottom:16px;">&#x2705;</div>
+          <h3 style="margin-bottom:8px;">No duplicates found</h3>
+          <p style="color:var(--gray-500);">All contacts appear to be unique.</p>
+        </div>
+      `;
+      showModal('contact-modal');
+    } else {
+      openDuplicateReview(pairs);
+    }
+  } catch (err) {
+    alert('Error scanning for duplicates: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Check for Duplicates';
+  }
+});
+
 // Export CSV
 document.getElementById('btn-export-csv').addEventListener('click', async () => {
   try {
@@ -563,4 +591,142 @@ function openDonationForm(contactId) {
       alert('Error: ' + err.message);
     }
   });
+}
+
+// --- Bulk duplicate review ---
+
+function openDuplicateReview(pairs) {
+  let currentIndex = 0;
+  let activePairs = [...pairs];
+
+  function renderCurrentPair() {
+    if (currentIndex >= activePairs.length) {
+      showReviewComplete();
+      return;
+    }
+
+    const pair = activePairs[currentIndex];
+    const a = pair.contactA;
+    const b = pair.contactB;
+    const reasons = pair.reasons;
+
+    const reasonLabels = { name: 'Name', email: 'Email', phone: 'Phone', address: 'Address' };
+    const reasonPills = reasons.map(r => `<span class="duplicate-reason-pill">${reasonLabels[r] || r} match</span>`).join('');
+
+    document.getElementById('modal-title').textContent = 'Review Duplicates';
+    const body = document.getElementById('modal-body');
+
+    body.innerHTML = `
+      <div class="dup-review-progress">
+        <span>Pair ${currentIndex + 1} of ${activePairs.length}</span>
+        <div class="dup-review-progress-bar">
+          <div class="dup-review-progress-fill" style="width:${((currentIndex) / activePairs.length) * 100}%"></div>
+        </div>
+      </div>
+
+      <div class="dup-review-reasons">${reasonPills}</div>
+
+      <div class="dup-review-compare">
+        <div class="dup-review-card" id="dup-card-a">
+          <div class="dup-review-card-header">
+            <img class="avatar avatar-sm" src="${getPhotoUrl(a, 64)}" alt="">
+            <strong>${escapeHtml(a.first_name)} ${escapeHtml(a.last_name)}</strong>
+          </div>
+          ${renderCompareFields(a, b, reasons)}
+          <button type="button" class="btn btn-primary btn-sm dup-keep-btn" id="btn-keep-a">Keep This, Delete Other</button>
+        </div>
+        <div class="dup-review-card" id="dup-card-b">
+          <div class="dup-review-card-header">
+            <img class="avatar avatar-sm" src="${getPhotoUrl(b, 64)}" alt="">
+            <strong>${escapeHtml(b.first_name)} ${escapeHtml(b.last_name)}</strong>
+          </div>
+          ${renderCompareFields(b, a, reasons)}
+          <button type="button" class="btn btn-primary btn-sm dup-keep-btn" id="btn-keep-b">Keep This, Delete Other</button>
+        </div>
+      </div>
+
+      <div class="duplicate-actions">
+        <button type="button" class="btn btn-sm" id="btn-dup-skip">Keep Both &amp; Skip</button>
+      </div>
+    `;
+
+    showModal('contact-modal');
+
+    // Keep A, delete B
+    body.querySelector('#btn-keep-a').addEventListener('click', () => deleteAndAdvance(b.id));
+    // Keep B, delete A
+    body.querySelector('#btn-keep-b').addEventListener('click', () => deleteAndAdvance(a.id));
+    // Skip
+    body.querySelector('#btn-dup-skip').addEventListener('click', () => {
+      currentIndex++;
+      renderCurrentPair();
+    });
+  }
+
+  async function deleteAndAdvance(deleteId) {
+    if (!confirm('Are you sure? This will permanently delete the contact and all related outreaches and donations.')) return;
+    try {
+      await api(`api/contacts/${deleteId}`, { method: 'DELETE' });
+      // Remove all remaining pairs that involve the deleted contact
+      activePairs = activePairs.filter((p, idx) => {
+        if (idx <= currentIndex) return true; // keep past entries for index stability
+        return p.contactA.id !== deleteId && p.contactB.id !== deleteId;
+      });
+      currentIndex++;
+      renderCurrentPair();
+    } catch (err) {
+      alert('Error deleting contact: ' + err.message);
+    }
+  }
+
+  function showReviewComplete() {
+    document.getElementById('modal-title').textContent = 'Duplicate Check Complete';
+    document.getElementById('modal-body').innerHTML = `
+      <div style="text-align:center;padding:32px;">
+        <div style="font-size:48px;margin-bottom:16px;">&#x2705;</div>
+        <h3 style="margin-bottom:8px;">All duplicates reviewed</h3>
+        <p style="color:var(--gray-500);">You've worked through all ${pairs.length} potential duplicate pair${pairs.length > 1 ? 's' : ''}.</p>
+        <button type="button" class="btn btn-primary" id="btn-dup-done" style="margin-top:16px;">Done</button>
+      </div>
+    `;
+    document.getElementById('btn-dup-done').addEventListener('click', () => {
+      hideModal('contact-modal');
+      loadContacts();
+    });
+  }
+
+  renderCurrentPair();
+}
+
+function renderCompareFields(contact, other, reasons) {
+  const fields = [
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'address_line1', label: 'Address' },
+    { key: 'city', label: 'City' },
+    { key: 'state', label: 'State' },
+    { key: 'zip', label: 'ZIP' },
+    { key: 'organization', label: 'Organization' },
+    { key: 'relationship', label: 'Relationship' },
+    { key: 'tags', label: 'Tags' },
+    { key: 'notes', label: 'Notes' },
+  ];
+
+  const reasonFieldMap = { name: ['first_name', 'last_name'], email: ['email'], phone: ['phone'], address: ['address_line1'] };
+  const matchingFields = new Set();
+  for (const r of reasons) {
+    for (const f of (reasonFieldMap[r] || [])) matchingFields.add(f);
+  }
+
+  let html = '<div class="dup-review-fields">';
+  for (const f of fields) {
+    const val = contact[f.key] || '';
+    const isMatch = matchingFields.has(f.key);
+    html += `<div class="dup-review-field${isMatch ? ' dup-field-match' : ''}">
+      <span class="dup-field-label">${f.label}</span>
+      <span class="dup-field-value">${escapeHtml(val) || '<span style="color:var(--gray-300);">\u2014</span>'}</span>
+    </div>`;
+  }
+  html += '</div>';
+  return html;
 }

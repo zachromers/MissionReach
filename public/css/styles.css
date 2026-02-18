@@ -1341,6 +1341,115 @@ input:focus, textarea:focus, select:focus {
   border-top: 1px solid var(--gray-200);
 }
 
+/* Bulk Duplicate Review */
+.dup-review-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--gray-500);
+  font-weight: 500;
+}
+
+.dup-review-progress span {
+  white-space: nowrap;
+}
+
+.dup-review-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--gray-200);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.dup-review-progress-fill {
+  height: 100%;
+  background: var(--blue-600);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.dup-review-reasons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.dup-review-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.dup-review-card {
+  background: var(--white);
+  border: 1.5px solid var(--gray-200);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dup-review-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.dup-review-fields {
+  flex: 1;
+  margin-bottom: 12px;
+}
+
+.dup-review-field {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.dup-review-field:nth-child(odd) {
+  background: var(--gray-50);
+}
+
+.dup-field-match {
+  background: #fef3c7 !important;
+  border-left: 3px solid #f59e0b;
+}
+
+.dup-field-label {
+  color: var(--gray-500);
+  font-weight: 500;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.dup-field-value {
+  color: var(--gray-800);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dup-keep-btn {
+  margin-top: auto;
+}
+
+@media (max-width: 640px) {
+  .dup-review-compare {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Utility */
 .hidden { display: none !important; }
 
