@@ -49,6 +49,7 @@ router.post('/preview', upload.single('file'), (req, res) => {
 router.post('/execute', (req, res) => {
   try {
     const { filePath, mapping } = req.body;
+    const userId = req.user.id;
 
     if (!filePath || !mapping) {
       return res.status(400).json({ error: 'filePath and mapping are required' });
@@ -64,8 +65,8 @@ router.post('/execute', (req, res) => {
     // Insert contacts into database
     const db = getDb();
     const insert = db.prepare(`
-      INSERT INTO contacts (first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags)
-      VALUES (@first_name, @last_name, @email, @phone, @address_line1, @address_line2, @city, @state, @zip, @country, @organization, @relationship, @notes, @tags)
+      INSERT INTO contacts (first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags, user_id)
+      VALUES (@first_name, @last_name, @email, @phone, @address_line1, @address_line2, @city, @state, @zip, @country, @organization, @relationship, @notes, @tags, @user_id)
     `);
 
     const insertMany = db.transaction((contacts) => {
@@ -85,13 +86,14 @@ router.post('/execute', (req, res) => {
           relationship: contact.relationship || null,
           notes: contact.notes || null,
           tags: contact.tags || null,
+          user_id: userId,
         });
       }
     });
 
     insertMany(result.contacts);
 
-    // Auto-merge imported tags into available_tags
+    // Auto-merge imported tags into available_tags for this user
     try {
       const tagSet = new Set();
       for (const c of result.contacts) {
@@ -100,7 +102,7 @@ router.post('/execute', (req, res) => {
         }
       }
       if (tagSet.size > 0) {
-        const existingRow = db.prepare("SELECT value FROM settings WHERE key = 'available_tags'").get();
+        const existingRow = db.prepare("SELECT value FROM settings WHERE user_id = ? AND key = 'available_tags'").get(userId);
         const existing = existingRow ? JSON.parse(existingRow.value) : [];
         const merged = new Map();
         for (const t of existing) merged.set(t.toLowerCase(), t);
@@ -108,7 +110,7 @@ router.post('/execute', (req, res) => {
           if (!merged.has(t.toLowerCase())) merged.set(t.toLowerCase(), t);
         }
         const sorted = Array.from(merged.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-        db.prepare("INSERT INTO settings (key, value) VALUES ('available_tags', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(JSON.stringify(sorted));
+        db.prepare("INSERT INTO settings (user_id, key, value) VALUES (?, 'available_tags', ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value").run(userId, JSON.stringify(sorted));
       }
     } catch (tagErr) {
       console.error('Warning: failed to merge imported tags:', tagErr.message);

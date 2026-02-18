@@ -11,6 +11,11 @@ async function api(url, options = {}) {
     delete defaults.headers['Content-Type'];
   }
   const res = await fetch(url, { ...defaults, ...options });
+  if (res.status === 401) {
+    // Session expired or not authenticated — redirect to login
+    if (typeof showLogin === 'function') showLogin();
+    throw new Error('Session expired. Please log in again.');
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;

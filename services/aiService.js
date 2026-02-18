@@ -1,9 +1,9 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { getDb } = require('../db/database');
 
-function getSettings() {
+function getSettings(userId) {
   const db = getDb();
-  const rows = db.prepare('SELECT * FROM settings').all();
+  const rows = db.prepare('SELECT * FROM settings WHERE user_id = ?').all(userId);
   const settings = {};
   for (const row of rows) {
     settings[row.key] = row.value;
@@ -23,14 +23,14 @@ const MODEL_MAP = {
  * Pre-filter contacts based on the user's natural language prompt.
  * Applies SQL-level filters using keyword detection, then caps results.
  */
-function preFilterContacts(userPrompt, excludeIds = []) {
+function preFilterContacts(userPrompt, excludeIds = [], userId) {
   const db = getDb();
   const prompt = userPrompt.toLowerCase();
 
-  let where = [];
+  let where = ['c.user_id = ?'];
   let orderBy = 'c.last_name, c.first_name';
   let limit = MAX_CONTACTS_TO_SEND;
-  const params = [];
+  const params = [userId];
 
   // Exclude already-recommended contacts
   if (excludeIds.length > 0) {
@@ -95,7 +95,7 @@ function preFilterContacts(userPrompt, excludeIds = []) {
   }
 
   // General "donor" mentions (but not "non-donor" or "never donated") — scope to contacts with donations
-  if (/donor|donated|giving|gave|donation/i.test(prompt) && !/never donated|non.?donor|haven.?t donated|no donation/i.test(prompt) && where.length === 0) {
+  if (/donor|donated|giving|gave|donation/i.test(prompt) && !/never donated|non.?donor|haven.?t donated|no donation/i.test(prompt) && where.length === 1) {
     where.push(`(SELECT COUNT(*) FROM donations d WHERE d.contact_id = c.id) > 0`);
   }
 
@@ -139,7 +139,7 @@ function preFilterContacts(userPrompt, excludeIds = []) {
   }
 
   // Build the query
-  const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
+  const whereClause = 'WHERE ' + where.join(' AND ');
 
   const sql = `
     SELECT c.*,
@@ -186,19 +186,19 @@ function preFilterContacts(userPrompt, excludeIds = []) {
         donation_count: c.donation_count,
       };
     }),
-    filterApplied: where.length > 0,
+    filterApplied: where.length > 1,
   };
 }
 
-async function processPrompt(userPrompt, excludeIds = []) {
-  const settings = getSettings();
+async function processPrompt(userPrompt, excludeIds = [], userId) {
+  const settings = getSettings(userId);
   const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
 
   if (!apiKey) {
     throw new Error('Please configure your Anthropic API key in Settings.');
   }
 
-  const { contacts, filterApplied } = preFilterContacts(userPrompt, excludeIds);
+  const { contacts, filterApplied } = preFilterContacts(userPrompt, excludeIds, userId);
   if (contacts.length === 0) {
     throw new Error('No contacts found matching your query. Try a different prompt or add more contacts.');
   }
@@ -271,8 +271,8 @@ Guidelines:
           (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) as last_donation_date,
           (SELECT d.amount FROM donations d WHERE d.contact_id = c.id ORDER BY d.date DESC LIMIT 1) as last_donation_amount,
           (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) as total_donated
-        FROM contacts c WHERE c.id = ?
-      `).get(rec.contact_id);
+        FROM contacts c WHERE c.id = ? AND c.user_id = ?
+      `).get(rec.contact_id, userId);
       if (full) {
         rec.contact = full;
       }
@@ -280,17 +280,18 @@ Guidelines:
   }
 
   // Log the prompt
-  db.prepare('INSERT INTO ai_prompts (prompt_text, response_summary, contacts_returned) VALUES (?, ?, ?)').run(
+  db.prepare('INSERT INTO ai_prompts (prompt_text, response_summary, contacts_returned, user_id) VALUES (?, ?, ?, ?)').run(
     userPrompt,
     parsed.reasoning || '',
-    JSON.stringify((parsed.contacts || []).map(c => c.contact_id))
+    JSON.stringify((parsed.contacts || []).map(c => c.contact_id)),
+    userId
   );
 
   return parsed;
 }
 
-async function generateWarmthScores({ forceAll = false } = {}) {
-  const settings = getSettings();
+async function generateWarmthScores({ forceAll = false, userId } = {}) {
+  const settings = getSettings(userId);
   const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
   if (!apiKey) return { updated: false };
 
@@ -305,9 +306,10 @@ async function generateWarmthScores({ forceAll = false } = {}) {
       (SELECT COUNT(*) FROM outreaches o WHERE o.contact_id = c.id) as outreach_count,
       (SELECT CAST(julianday('now') - julianday(MAX(o.date)) AS INTEGER) FROM outreaches o WHERE o.contact_id = c.id) as days_since_last_contact
     FROM contacts c
-    ${forceAll ? '' : "WHERE c.warmth_score_updated_at IS NULL OR c.warmth_score_updated_at < datetime('now', '-24 hours')"}
+    WHERE c.user_id = ?
+    ${forceAll ? '' : "AND (c.warmth_score_updated_at IS NULL OR c.warmth_score_updated_at < datetime('now', '-24 hours'))"}
   `;
-  const staleContacts = db.prepare(sql).all();
+  const staleContacts = db.prepare(sql).all(userId);
 
   if (staleContacts.length === 0) return { updated: false, count: 0 };
 
@@ -372,8 +374,8 @@ Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reas
   return { updated: true, count: totalUpdated };
 }
 
-async function generateSingleWarmthScore(contactId) {
-  const settings = getSettings();
+async function generateSingleWarmthScore(contactId, userId) {
+  const settings = getSettings(userId);
   const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
   if (!apiKey) return;
 
@@ -387,8 +389,8 @@ async function generateSingleWarmthScore(contactId) {
       (SELECT COUNT(*) FROM outreaches o WHERE o.contact_id = c.id) as outreach_count,
       (SELECT CAST(julianday('now') - julianday(MAX(o.date)) AS INTEGER) FROM outreaches o WHERE o.contact_id = c.id) as days_since_last_contact
     FROM contacts c
-    WHERE c.id = ?
-  `).get(contactId);
+    WHERE c.id = ? AND c.user_id = ?
+  `).get(contactId, userId);
 
   if (!c) return;
 
@@ -442,8 +444,8 @@ Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reas
   }
 }
 
-async function generateOutreachDraft(contactId, mode) {
-  const settings = getSettings();
+async function generateOutreachDraft(contactId, mode, userId) {
+  const settings = getSettings(userId);
   const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
 
   if (!apiKey) {
@@ -458,8 +460,8 @@ async function generateOutreachDraft(contactId, mode) {
       (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) as total_donated,
       (SELECT COUNT(*) FROM donations d WHERE d.contact_id = c.id) as donation_count,
       (SELECT MAX(d.date) FROM donations d WHERE d.contact_id = c.id) as last_donation_date
-    FROM contacts c WHERE c.id = ?
-  `).get(contactId);
+    FROM contacts c WHERE c.id = ? AND c.user_id = ?
+  `).get(contactId, userId);
 
   if (!contact) {
     throw new Error('Contact not found.');

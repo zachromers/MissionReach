@@ -1,6 +1,10 @@
 // Main app — tab switching and initialization
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Check authentication before anything else
+  const authenticated = await checkAuth();
+  if (!authenticated) return;
+
   // Tab navigation
   const tabs = document.querySelectorAll('.nav-tab');
   const pages = document.querySelectorAll('.page');
@@ -22,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (target === 'contacts') loadContacts();
       if (target === 'search') initSearch();
       if (target === 'settings') loadSettings();
+      if (target === 'admin') loadAdminUsers();
     });
   });
 

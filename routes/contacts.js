@@ -35,7 +35,7 @@ const photoUpload = multer({
 });
 
 // Shared query builder for contacts list + CSV export
-function buildContactQuery(query) {
+function buildContactQuery(query, userId) {
   const { search, tag, sort, order,
     name_filter, email_filter, phone_filter,
     city, state, organization, relationship,
@@ -53,9 +53,9 @@ function buildContactQuery(query) {
       (SELECT d.amount FROM donations d WHERE d.contact_id = c.id ORDER BY d.date DESC LIMIT 1) as last_donation_amount,
       (SELECT COALESCE(SUM(d.amount), 0) FROM donations d WHERE d.contact_id = c.id) as total_donated
     FROM contacts c
-    WHERE 1=1
+    WHERE c.user_id = ?
   `;
-  const params = [];
+  const params = [userId];
 
   if (search) {
     sql += ` AND (c.first_name LIKE ? OR c.last_name LIKE ? OR c.email LIKE ? OR c.organization LIKE ? OR c.phone LIKE ?)`;
@@ -192,7 +192,8 @@ function buildContactQuery(query) {
 router.get('/export/csv', (req, res) => {
   try {
     const db = getDb();
-    const { sql, params } = buildContactQuery(req.query);
+    const userId = req.user.id;
+    const { sql, params } = buildContactQuery(req.query, userId);
     const contacts = db.prepare(sql).all(...params);
 
     // Fetch full donation history for all exported contacts
@@ -230,7 +231,8 @@ router.get('/export/csv', (req, res) => {
 router.get('/', (req, res) => {
   try {
     const db = getDb();
-    const { sql, params } = buildContactQuery(req.query);
+    const userId = req.user.id;
+    const { sql, params } = buildContactQuery(req.query, userId);
     const contacts = db.prepare(sql).all(...params);
     res.json(contacts);
   } catch (err) {
@@ -242,7 +244,8 @@ router.get('/', (req, res) => {
 router.get('/find-all-duplicates', (req, res) => {
   try {
     const db = getDb();
-    const contacts = db.prepare('SELECT * FROM contacts').all();
+    const userId = req.user.id;
+    const contacts = db.prepare('SELECT * FROM contacts WHERE user_id = ?').all(userId);
 
     function normalizePhone(p) {
       return (p || '').replace(/\D/g, '');
@@ -297,7 +300,8 @@ router.get('/find-all-duplicates', (req, res) => {
 router.get('/:id', (req, res) => {
   try {
     const db = getDb();
-    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
+    const userId = req.user.id;
+    const contact = db.prepare('SELECT * FROM contacts WHERE id = ? AND user_id = ?').get(req.params.id, userId);
     if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
     contact.outreaches = db.prepare('SELECT * FROM outreaches WHERE contact_id = ? ORDER BY date DESC').all(req.params.id);
@@ -313,6 +317,7 @@ router.get('/:id', (req, res) => {
 router.post('/check-duplicates', (req, res) => {
   try {
     const db = getDb();
+    const userId = req.user.id;
     const { first_name, last_name, email, phone, address_line1 } = req.body;
     const duplicates = new Map(); // id -> { contact, reasons[] }
 
@@ -324,8 +329,8 @@ router.post('/check-duplicates', (req, res) => {
     // 1. Name match (case-insensitive)
     if (first_name && last_name) {
       const rows = db.prepare(
-        `SELECT * FROM contacts WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)`
-      ).all(first_name.trim(), last_name.trim());
+        `SELECT * FROM contacts WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?) AND user_id = ?`
+      ).all(first_name.trim(), last_name.trim(), userId);
       for (const r of rows) {
         if (!duplicates.has(r.id)) duplicates.set(r.id, { contact: r, reasons: [] });
         duplicates.get(r.id).reasons.push('name');
@@ -335,8 +340,8 @@ router.post('/check-duplicates', (req, res) => {
     // 2. Email match (case-insensitive, non-empty only)
     if (email && email.trim()) {
       const rows = db.prepare(
-        `SELECT * FROM contacts WHERE LOWER(email) = LOWER(?) AND email IS NOT NULL AND email != ''`
-      ).all(email.trim());
+        `SELECT * FROM contacts WHERE LOWER(email) = LOWER(?) AND email IS NOT NULL AND email != '' AND user_id = ?`
+      ).all(email.trim(), userId);
       for (const r of rows) {
         if (!duplicates.has(r.id)) duplicates.set(r.id, { contact: r, reasons: [] });
         duplicates.get(r.id).reasons.push('email');
@@ -348,8 +353,8 @@ router.post('/check-duplicates', (req, res) => {
       const normalized = normalizePhone(phone);
       if (normalized.length >= 7) {
         const rows = db.prepare(
-          `SELECT * FROM contacts WHERE phone IS NOT NULL AND phone != ''`
-        ).all();
+          `SELECT * FROM contacts WHERE phone IS NOT NULL AND phone != '' AND user_id = ?`
+        ).all(userId);
         for (const r of rows) {
           if (normalizePhone(r.phone) === normalized) {
             if (!duplicates.has(r.id)) duplicates.set(r.id, { contact: r, reasons: [] });
@@ -362,8 +367,8 @@ router.post('/check-duplicates', (req, res) => {
     // 4. Address match (case-insensitive on address_line1, non-empty only)
     if (address_line1 && address_line1.trim()) {
       const rows = db.prepare(
-        `SELECT * FROM contacts WHERE LOWER(address_line1) = LOWER(?) AND address_line1 IS NOT NULL AND address_line1 != ''`
-      ).all(address_line1.trim());
+        `SELECT * FROM contacts WHERE LOWER(address_line1) = LOWER(?) AND address_line1 IS NOT NULL AND address_line1 != '' AND user_id = ?`
+      ).all(address_line1.trim(), userId);
       for (const r of rows) {
         if (!duplicates.has(r.id)) duplicates.set(r.id, { contact: r, reasons: [] });
         duplicates.get(r.id).reasons.push('address');
@@ -381,6 +386,7 @@ router.post('/check-duplicates', (req, res) => {
 router.post('/', (req, res) => {
   try {
     const db = getDb();
+    const userId = req.user.id;
     const { first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags } = req.body;
 
     if (!first_name || !last_name) {
@@ -392,9 +398,9 @@ router.post('/', (req, res) => {
     const defaultPhoto = `https://ui-avatars.com/api/?name=${encodeURIComponent(first_name)}+${encodeURIComponent(last_name)}&background=${bg}&color=fff&size=128&bold=true`;
 
     const result = db.prepare(`
-      INSERT INTO contacts (first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags, photo_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(first_name, last_name, email || null, phone || null, address_line1 || null, address_line2 || null, city || null, state || null, zip || null, country || 'US', organization || null, relationship || null, notes || null, tags || null, defaultPhoto);
+      INSERT INTO contacts (first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags, photo_url, user_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(first_name, last_name, email || null, phone || null, address_line1 || null, address_line2 || null, city || null, state || null, zip || null, country || 'US', organization || null, relationship || null, notes || null, tags || null, defaultPhoto, userId);
 
     const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(contact);
@@ -407,7 +413,8 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
+    const userId = req.user.id;
+    const existing = db.prepare('SELECT * FROM contacts WHERE id = ? AND user_id = ?').get(req.params.id, userId);
     if (!existing) return res.status(404).json({ error: 'Contact not found' });
 
     const fields = ['first_name', 'last_name', 'email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'zip', 'country', 'organization', 'relationship', 'notes', 'tags', 'photo_url'];
@@ -426,9 +433,9 @@ router.put('/:id', (req, res) => {
     }
 
     updates.push('updated_at = CURRENT_TIMESTAMP');
-    params.push(req.params.id);
+    params.push(req.params.id, userId);
 
-    db.prepare(`UPDATE contacts SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    db.prepare(`UPDATE contacts SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
     const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
     res.json(contact);
   } catch (err) {
@@ -440,7 +447,8 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   try {
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
+    const userId = req.user.id;
+    const existing = db.prepare('SELECT * FROM contacts WHERE id = ? AND user_id = ?').get(req.params.id, userId);
     if (!existing) return res.status(404).json({ error: 'Contact not found' });
 
     db.prepare('DELETE FROM outreaches WHERE contact_id = ?').run(req.params.id);
@@ -459,6 +467,10 @@ router.delete('/:id', (req, res) => {
 router.get('/:id/donations', (req, res) => {
   try {
     const db = getDb();
+    const userId = req.user.id;
+    const contact = db.prepare('SELECT id FROM contacts WHERE id = ? AND user_id = ?').get(req.params.id, userId);
+    if (!contact) return res.status(404).json({ error: 'Contact not found' });
+
     const donations = db.prepare('SELECT * FROM donations WHERE contact_id = ? ORDER BY date DESC').all(req.params.id);
     res.json(donations);
   } catch (err) {
@@ -470,19 +482,20 @@ router.get('/:id/donations', (req, res) => {
 router.post('/:id/donations', (req, res) => {
   try {
     const db = getDb();
-    const contact = db.prepare('SELECT id FROM contacts WHERE id = ?').get(req.params.id);
+    const userId = req.user.id;
+    const contact = db.prepare('SELECT id FROM contacts WHERE id = ? AND user_id = ?').get(req.params.id, userId);
     if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
     const { amount, date, method, recurring, notes } = req.body;
     if (!amount || !date) return res.status(400).json({ error: 'amount and date are required' });
 
     const result = db.prepare(
-      'INSERT INTO donations (contact_id, amount, date, method, recurring, notes) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(req.params.id, amount, date, method || null, recurring ? 1 : 0, notes || null);
+      'INSERT INTO donations (contact_id, amount, date, method, recurring, notes, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(req.params.id, amount, date, method || null, recurring ? 1 : 0, notes || null, userId);
 
     const donation = db.prepare('SELECT * FROM donations WHERE id = ?').get(result.lastInsertRowid);
     // Fire-and-forget warmth score update
-    generateSingleWarmthScore(req.params.id).catch(() => {});
+    generateSingleWarmthScore(req.params.id, userId).catch(() => {});
     res.status(201).json(donation);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -495,6 +508,10 @@ router.post('/:id/donations', (req, res) => {
 router.get('/:id/outreaches', (req, res) => {
   try {
     const db = getDb();
+    const userId = req.user.id;
+    const contact = db.prepare('SELECT id FROM contacts WHERE id = ? AND user_id = ?').get(req.params.id, userId);
+    if (!contact) return res.status(404).json({ error: 'Contact not found' });
+
     const outreaches = db.prepare('SELECT * FROM outreaches WHERE contact_id = ? ORDER BY date DESC').all(req.params.id);
     res.json(outreaches);
   } catch (err) {
@@ -506,22 +523,23 @@ router.get('/:id/outreaches', (req, res) => {
 router.post('/:id/outreaches', (req, res) => {
   try {
     const db = getDb();
-    const contact = db.prepare('SELECT id FROM contacts WHERE id = ?').get(req.params.id);
+    const userId = req.user.id;
+    const contact = db.prepare('SELECT id FROM contacts WHERE id = ? AND user_id = ?').get(req.params.id, userId);
     if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
     const { mode, direction, subject, content, date, ai_generated, status } = req.body;
     if (!mode) return res.status(400).json({ error: 'mode is required' });
 
     const result = db.prepare(
-      'INSERT INTO outreaches (contact_id, mode, direction, subject, content, date, ai_generated, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO outreaches (contact_id, mode, direction, subject, content, date, ai_generated, status, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       req.params.id, mode, direction || 'outgoing', subject || null, content || null,
-      date || new Date().toISOString(), ai_generated ? 1 : 0, status || 'completed'
+      date || new Date().toISOString(), ai_generated ? 1 : 0, status || 'completed', userId
     );
 
     const outreach = db.prepare('SELECT * FROM outreaches WHERE id = ?').get(result.lastInsertRowid);
     // Fire-and-forget warmth score update
-    generateSingleWarmthScore(req.params.id).catch(() => {});
+    generateSingleWarmthScore(req.params.id, userId).catch(() => {});
     res.status(201).json(outreach);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -532,7 +550,8 @@ router.post('/:id/outreaches', (req, res) => {
 router.post('/:id/photo', photoUpload.single('photo'), (req, res) => {
   try {
     const db = getDb();
-    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
+    const userId = req.user.id;
+    const contact = db.prepare('SELECT * FROM contacts WHERE id = ? AND user_id = ?').get(req.params.id, userId);
     if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
     if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
@@ -545,7 +564,7 @@ router.post('/:id/photo', photoUpload.single('photo'), (req, res) => {
     }
 
     const photoUrl = `uploads/photos/${req.file.filename}`;
-    db.prepare('UPDATE contacts SET photo_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(photoUrl, req.params.id);
+    db.prepare('UPDATE contacts SET photo_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?').run(photoUrl, req.params.id, userId);
 
     const updated = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
     res.json(updated);

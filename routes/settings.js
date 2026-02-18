@@ -6,7 +6,8 @@ const { getDb } = require('../db/database');
 router.get('/', (req, res) => {
   try {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM settings').all();
+    const userId = req.user.id;
+    const rows = db.prepare('SELECT * FROM settings WHERE user_id = ?').all(userId);
     const settings = {};
     for (const row of rows) {
       if (row.key === 'anthropic_api_key' && row.value) {
@@ -30,13 +31,14 @@ router.get('/', (req, res) => {
 router.put('/', (req, res) => {
   try {
     const db = getDb();
-    const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+    const userId = req.user.id;
+    const upsert = db.prepare('INSERT INTO settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value');
 
     const allowed = ['missionary_name', 'missionary_context', 'default_stale_days', 'anthropic_api_key', 'claude_model', 'available_tags'];
     const transaction = db.transaction((data) => {
       for (const [key, value] of Object.entries(data)) {
         if (allowed.includes(key)) {
-          upsert.run(key, value);
+          upsert.run(userId, key, value);
         }
       }
     });
@@ -52,7 +54,8 @@ router.put('/', (req, res) => {
 router.get('/tags', (req, res) => {
   try {
     const db = getDb();
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'available_tags'").get();
+    const userId = req.user.id;
+    const row = db.prepare("SELECT value FROM settings WHERE user_id = ? AND key = 'available_tags'").get(userId);
     const tags = row ? JSON.parse(row.value) : [];
     res.json({ tags });
   } catch (err) {
@@ -64,6 +67,7 @@ router.get('/tags', (req, res) => {
 router.put('/tags', (req, res) => {
   try {
     const db = getDb();
+    const userId = req.user.id;
     let tags = req.body.tags;
     if (!Array.isArray(tags)) {
       return res.status(400).json({ error: 'tags must be an array' });
@@ -77,7 +81,7 @@ router.put('/tags', (req, res) => {
       }
     }
     const sorted = Array.from(seen.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-    db.prepare("INSERT INTO settings (key, value) VALUES ('available_tags', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(JSON.stringify(sorted));
+    db.prepare("INSERT INTO settings (user_id, key, value) VALUES (?, 'available_tags', ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value").run(userId, JSON.stringify(sorted));
     res.json({ tags: sorted });
   } catch (err) {
     res.status(500).json({ error: err.message });

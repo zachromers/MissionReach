@@ -125,6 +125,15 @@ function _saveDb() {
   }
 }
 
+function _hasColumn(tableName, columnName) {
+  try {
+    db.prepare(`SELECT ${columnName} FROM ${tableName} LIMIT 1`).get();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 async function initialize() {
   if (db) return db;
 
@@ -140,33 +149,77 @@ async function initialize() {
   // Enable foreign keys
   db._db.run('PRAGMA foreign_keys = ON');
 
-  // Run schema
+  // --- Settings table migration (must happen BEFORE schema.sql runs) ---
+  // Check if the old settings table exists with single-column primary key
+  const needsSettingsMigration = (() => {
+    try {
+      // If settings table exists but has no user_id column, it's the old format
+      db.prepare('SELECT key FROM settings LIMIT 1').get();
+      return !_hasColumn('settings', 'user_id');
+    } catch (e) {
+      return false; // table doesn't exist yet, schema.sql will create it
+    }
+  })();
+
+  if (needsSettingsMigration) {
+    db._db.run('CREATE TABLE settings_v2 (user_id INTEGER NOT NULL DEFAULT 0, key TEXT NOT NULL, value TEXT, PRIMARY KEY (user_id, key))');
+    db._db.run('INSERT INTO settings_v2 (user_id, key, value) SELECT 1, key, value FROM settings');
+    db._db.run('DROP TABLE settings');
+    db._db.run('ALTER TABLE settings_v2 RENAME TO settings');
+    _saveDb();
+  }
+
+  // Run schema (CREATE TABLE IF NOT EXISTS for all tables)
   const schema = fs.readFileSync(SCHEMA_PATH, 'utf-8');
   db._db.run(schema);
 
   // Migrate: add photo_url column if missing
-  try {
-    db.prepare('SELECT photo_url FROM contacts LIMIT 1').get();
-  } catch (e) {
+  if (!_hasColumn('contacts', 'photo_url')) {
     db._db.run('ALTER TABLE contacts ADD COLUMN photo_url TEXT');
     _saveDb();
   }
 
   // Migrate: add warmth_score columns if missing
-  try {
-    db.prepare('SELECT warmth_score FROM contacts LIMIT 1').get();
-  } catch (e) {
+  if (!_hasColumn('contacts', 'warmth_score')) {
     db._db.run('ALTER TABLE contacts ADD COLUMN warmth_score INTEGER');
     db._db.run('ALTER TABLE contacts ADD COLUMN warmth_score_updated_at DATETIME');
     _saveDb();
   }
 
   // Migrate: add warmth_score_reason column if missing
-  try {
-    db.prepare('SELECT warmth_score_reason FROM contacts LIMIT 1').get();
-  } catch (e) {
+  if (!_hasColumn('contacts', 'warmth_score_reason')) {
     db._db.run('ALTER TABLE contacts ADD COLUMN warmth_score_reason TEXT');
     _saveDb();
+  }
+
+  // --- Auth migration: add user_id columns ---
+  if (!_hasColumn('contacts', 'user_id')) {
+    db._db.run('ALTER TABLE contacts ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1');
+    _saveDb();
+  }
+
+  if (!_hasColumn('donations', 'user_id')) {
+    db._db.run('ALTER TABLE donations ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1');
+    _saveDb();
+  }
+
+  if (!_hasColumn('outreaches', 'user_id')) {
+    db._db.run('ALTER TABLE outreaches ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1');
+    _saveDb();
+  }
+
+  if (!_hasColumn('ai_prompts', 'user_id')) {
+    db._db.run('ALTER TABLE ai_prompts ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1');
+    _saveDb();
+  }
+
+  // --- Bootstrap admin user ---
+  const adminUser = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
+  if (!adminUser) {
+    const bcrypt = require('bcryptjs');
+    const hash = bcrypt.hashSync('admin', 10);
+    db.prepare('INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)').run('admin', hash, 'Administrator', 'admin');
+    console.log('Created default admin user (username: admin, password: admin)');
   }
 
   // Backfill: generate default avatars for contacts without a photo
@@ -181,10 +234,10 @@ async function initialize() {
     }
   }
 
-  // Seed default settings if empty
-  const countResult = db.prepare('SELECT COUNT(*) as cnt FROM settings').get();
+  // Seed default settings for admin user (user_id = 1) if empty
+  const countResult = db.prepare('SELECT COUNT(*) as cnt FROM settings WHERE user_id = 1').get();
   if (countResult.cnt === 0) {
-    const insert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
+    const insert = db.prepare('INSERT INTO settings (user_id, key, value) VALUES (1, ?, ?)');
     insert.run('missionary_name', '');
     insert.run('missionary_context', '');
     insert.run('default_stale_days', '90');
@@ -192,7 +245,7 @@ async function initialize() {
   }
 
   // Seed available_tags from existing contacts if not yet set
-  const tagsRow = db.prepare("SELECT value FROM settings WHERE key = 'available_tags'").get();
+  const tagsRow = db.prepare("SELECT value FROM settings WHERE user_id = 1 AND key = 'available_tags'").get();
   if (!tagsRow) {
     const allContacts = db.prepare('SELECT tags FROM contacts WHERE tags IS NOT NULL AND tags != ""').all();
     const tagSet = new Set();
@@ -200,7 +253,7 @@ async function initialize() {
       c.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => tagSet.add(t));
     }
     const sorted = Array.from(tagSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('available_tags', JSON.stringify(sorted));
+    db.prepare('INSERT INTO settings (user_id, key, value) VALUES (1, ?, ?)').run('available_tags', JSON.stringify(sorted));
   }
 
   return db;

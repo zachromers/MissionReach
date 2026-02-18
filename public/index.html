@@ -11,291 +11,406 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-  <nav class="top-nav">
-    <a href="#" class="nav-brand" id="nav-brand-link">MissionReach</a>
-    <div class="nav-tabs">
-      <button class="nav-tab active" data-tab="home">Home</button>
-      <button class="nav-tab" data-tab="contacts">Contacts</button>
-      <button class="nav-tab" data-tab="search">Search</button>
-      <button class="nav-tab" data-tab="import">Import</button>
-      <button class="nav-tab" data-tab="settings">Settings</button>
+
+  <!-- LOGIN PAGE -->
+  <div id="login-page" class="login-page hidden">
+    <div class="login-card">
+      <h1 class="login-brand">MissionReach</h1>
+      <p class="login-subtitle">Sign in to your account</p>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-username">Username</label>
+          <input type="text" id="login-username" autocomplete="username" autofocus>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary login-btn">Sign In</button>
+        <div id="login-error" class="login-error hidden"></div>
+      </form>
     </div>
-  </nav>
+  </div>
 
-  <main class="content">
-    <!-- HOME PAGE -->
-    <section id="page-home" class="page active">
-      <div class="carousel-toolbar">
-        <button class="btn btn-sm" id="carousel-sort-toggle">Warmth: High → Low</button>
+  <!-- APP SHELL (hidden until authenticated) -->
+  <div id="app-shell" class="hidden">
+
+    <!-- Default password warning banner -->
+    <div id="default-password-banner" class="default-password-banner hidden">
+      <span>You are using the default admin password. Please change it in Settings for security.</span>
+      <button class="btn btn-sm" onclick="document.querySelector('[data-tab=&quot;settings&quot;]').click(); document.getElementById('current-password').focus();">Change Password</button>
+    </div>
+
+    <nav class="top-nav">
+      <a href="#" class="nav-brand" id="nav-brand-link">MissionReach</a>
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="home">Home</button>
+        <button class="nav-tab" data-tab="contacts">Contacts</button>
+        <button class="nav-tab" data-tab="search">Search</button>
+        <button class="nav-tab" data-tab="import">Import</button>
+        <button class="nav-tab" data-tab="settings">Settings</button>
+        <button class="nav-tab hidden" data-tab="admin" id="nav-tab-admin">Admin</button>
       </div>
-      <div class="contact-carousel-wrapper">
-        <button class="carousel-arrow carousel-arrow-left" id="carousel-left" aria-label="Scroll left">&#8249;</button>
-        <div class="contact-carousel" id="contact-carousel"></div>
-        <button class="carousel-arrow carousel-arrow-right" id="carousel-right" aria-label="Scroll right">&#8250;</button>
+      <div class="nav-user-menu">
+        <span id="nav-user-display" class="nav-user-name"></span>
+        <button class="btn btn-sm nav-logout-btn" id="btn-logout">Logout</button>
       </div>
+    </nav>
 
-      <p id="warmth-status" class="hidden" style="text-align:center;color:var(--gray-400);font-size:13px;margin-bottom:12px;">Updating warmth scores...</p>
-      <div class="prompt-section">
-        <h1>Recommended Outreach for Today</h1>
+    <main class="content">
+      <!-- HOME PAGE -->
+      <section id="page-home" class="page active">
+        <div class="carousel-toolbar">
+          <button class="btn btn-sm" id="carousel-sort-toggle">Warmth: High → Low</button>
+        </div>
+        <div class="contact-carousel-wrapper">
+          <button class="carousel-arrow carousel-arrow-left" id="carousel-left" aria-label="Scroll left">&#8249;</button>
+          <div class="contact-carousel" id="contact-carousel"></div>
+          <button class="carousel-arrow carousel-arrow-right" id="carousel-right" aria-label="Scroll right">&#8250;</button>
+        </div>
 
-        <div class="daily-prompt" id="daily-chips"></div>
+        <p id="warmth-status" class="hidden" style="text-align:center;color:var(--gray-400);font-size:13px;margin-bottom:12px;">Updating warmth scores...</p>
+        <div class="prompt-section">
+          <h1>Recommended Outreach for Today</h1>
 
-        <p class="subtitle">If you would like to create custom outreach recommendation, enter a population filter below</p>
-        <textarea id="ai-prompt" placeholder='e.g. "Who used to donate monthly but stopped in the last 6 months?"' rows="4"></textarea>
-        <button id="btn-generate" class="btn btn-primary">Generate Recommendations</button>
-        <p id="model-indicator" class="model-indicator"></p>
+          <div class="daily-prompt" id="daily-chips"></div>
 
-        <div id="ai-results" class="ai-results hidden">
-          <div class="results-header">
-            <h2>Recommended Contacts <span id="results-count" class="badge"></span></h2>
-            <div class="bulk-actions">
-              <button id="btn-log-all" class="btn btn-sm">Log All as Outreach</button>
-              <button id="btn-export-drafts" class="btn btn-sm">Export Drafts</button>
+          <p class="subtitle">If you would like to create custom outreach recommendation, enter a population filter below</p>
+          <textarea id="ai-prompt" placeholder='e.g. "Who used to donate monthly but stopped in the last 6 months?"' rows="4"></textarea>
+          <button id="btn-generate" class="btn btn-primary">Generate Recommendations</button>
+          <p id="model-indicator" class="model-indicator"></p>
+
+          <div id="ai-results" class="ai-results hidden">
+            <div class="results-header">
+              <h2>Recommended Contacts <span id="results-count" class="badge"></span></h2>
+              <div class="bulk-actions">
+                <button id="btn-log-all" class="btn btn-sm">Log All as Outreach</button>
+                <button id="btn-export-drafts" class="btn btn-sm">Export Drafts</button>
+              </div>
+            </div>
+            <div id="results-cards"></div>
+            <div id="load-more-wrap" class="hidden" style="text-align:center;margin:20px 0;">
+              <button id="btn-load-more" class="btn">Load More Recommendations</button>
+              <div id="load-more-loading" class="hidden" style="margin-top:8px;">
+                <div class="spinner"></div>
+                <p>Loading more recommendations...</p>
+              </div>
+            </div>
+            <details class="reasoning-section">
+              <summary>AI Reasoning</summary>
+              <p id="ai-reasoning"></p>
+            </details>
+          </div>
+
+          <div id="ai-loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Analyzing your contacts and generating recommendations...</p>
+          </div>
+
+          <div id="ai-error" class="hidden error-message"></div>
+        </div>
+      </section>
+
+      <!-- CONTACTS PAGE -->
+      <section id="page-contacts" class="page">
+        <div class="contacts-header">
+          <div class="contacts-search-row">
+            <input type="text" id="contacts-search" placeholder="Search contacts..." class="search-input">
+            <button id="btn-export-csv" class="btn btn-sm">Export Contacts</button>
+            <button id="btn-find-duplicates" class="btn btn-sm">Check for Duplicates</button>
+            <button id="btn-add-contact" class="btn btn-primary">Add New Contact</button>
+          </div>
+          <div class="tag-filters" id="tag-filters"></div>
+        </div>
+        <div class="top-scroll" id="contacts-top-scroll"><div></div></div>
+        <div class="contacts-table-wrap" id="contacts-table-wrap">
+          <table class="contacts-table">
+            <thead>
+              <tr>
+                <th data-sort="last_name">Name</th>
+                <th>Warmth</th>
+                <th data-sort="email">Email</th>
+                <th>Phone</th>
+                <th data-sort="last_outreach_date">Last Contact</th>
+                <th data-sort="last_donation_date">Last Donation</th>
+                <th>Tags</th>
+              </tr>
+            </thead>
+            <tbody id="contacts-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SEARCH PAGE -->
+      <section id="page-search" class="page">
+        <div class="search-header">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+            <h2 style="font-size:20px;margin:0;">Search Contacts <span id="search-count" class="badge">0</span></h2>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button id="btn-search-export-csv" class="btn btn-sm">Export CSV</button>
+              <button id="btn-search-copy-emails" class="btn btn-sm">Copy Emails</button>
+              <button id="btn-search-copy-phones" class="btn btn-sm">Copy Phones</button>
+              <button id="btn-search-clear" class="btn btn-sm">Clear Filters</button>
             </div>
           </div>
-          <div id="results-cards"></div>
-          <div id="load-more-wrap" class="hidden" style="text-align:center;margin:20px 0;">
-            <button id="btn-load-more" class="btn">Load More Recommendations</button>
-            <div id="load-more-loading" class="hidden" style="margin-top:8px;">
-              <div class="spinner"></div>
-              <p>Loading more recommendations...</p>
-            </div>
-          </div>
-          <details class="reasoning-section">
-            <summary>AI Reasoning</summary>
-            <p id="ai-reasoning"></p>
-          </details>
         </div>
-
-        <div id="ai-loading" class="hidden">
-          <div class="spinner"></div>
-          <p>Analyzing your contacts and generating recommendations...</p>
-        </div>
-
-        <div id="ai-error" class="hidden error-message"></div>
-      </div>
-    </section>
-
-    <!-- CONTACTS PAGE -->
-    <section id="page-contacts" class="page">
-      <div class="contacts-header">
-        <div class="contacts-search-row">
-          <input type="text" id="contacts-search" placeholder="Search contacts..." class="search-input">
-          <button id="btn-export-csv" class="btn btn-sm">Export Contacts</button>
-          <button id="btn-find-duplicates" class="btn btn-sm">Check for Duplicates</button>
-          <button id="btn-add-contact" class="btn btn-primary">Add New Contact</button>
-        </div>
-        <div class="tag-filters" id="tag-filters"></div>
-      </div>
-      <div class="top-scroll" id="contacts-top-scroll"><div></div></div>
-      <div class="contacts-table-wrap" id="contacts-table-wrap">
-        <table class="contacts-table">
-          <thead>
-            <tr>
-              <th data-sort="last_name">Name</th>
-              <th>Warmth</th>
-              <th data-sort="email">Email</th>
-              <th>Phone</th>
-              <th data-sort="last_outreach_date">Last Contact</th>
-              <th data-sort="last_donation_date">Last Donation</th>
-              <th>Tags</th>
-            </tr>
-          </thead>
-          <tbody id="contacts-tbody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- SEARCH PAGE -->
-    <section id="page-search" class="page">
-      <div class="search-header">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-          <h2 style="font-size:20px;margin:0;">Search Contacts <span id="search-count" class="badge">0</span></h2>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button id="btn-search-export-csv" class="btn btn-sm">Export CSV</button>
-            <button id="btn-search-copy-emails" class="btn btn-sm">Copy Emails</button>
-            <button id="btn-search-copy-phones" class="btn btn-sm">Copy Phones</button>
-            <button id="btn-search-clear" class="btn btn-sm">Clear Filters</button>
-          </div>
-        </div>
-      </div>
-      <div class="top-scroll" id="search-top-scroll"><div></div></div>
-      <div class="search-table-wrap" id="search-table-wrap">
-        <table class="search-table">
-          <thead>
-            <tr class="search-col-headers">
-              <th data-sort="last_name">Name</th>
-              <th data-sort="warmth_score">Warmth</th>
-              <th data-sort="email">Email</th>
-              <th data-sort="phone">Phone</th>
-              <th data-sort="city">City</th>
-              <th data-sort="state">State</th>
-              <th data-sort="organization">Organization</th>
-              <th data-sort="relationship">Relationship</th>
-              <th data-sort="tags">Tags</th>
-              <th data-sort="last_outreach_date">Last Contact</th>
-              <th data-sort="last_donation_date">Last Donation</th>
-              <th data-sort="total_donated">Total Donated</th>
-            </tr>
-            <tr class="search-filter-row">
-              <td><input type="text" class="filter-input" data-filter="name_filter" placeholder="Name..."></td>
-              <td>
-                <div class="warmth-multiselect" data-filter="warmth_scores">
-                  <button type="button" class="filter-input warmth-multiselect-btn">All</button>
-                  <div class="warmth-multiselect-dropdown">
-                    <label><input type="checkbox" value="1"><span class="warmth-badge warmth-1">1</span></label>
-                    <label><input type="checkbox" value="2"><span class="warmth-badge warmth-2">2</span></label>
-                    <label><input type="checkbox" value="3"><span class="warmth-badge warmth-3">3</span></label>
-                    <label><input type="checkbox" value="4"><span class="warmth-badge warmth-4">4</span></label>
-                    <label><input type="checkbox" value="5"><span class="warmth-badge warmth-5">5</span></label>
+        <div class="top-scroll" id="search-top-scroll"><div></div></div>
+        <div class="search-table-wrap" id="search-table-wrap">
+          <table class="search-table">
+            <thead>
+              <tr class="search-col-headers">
+                <th data-sort="last_name">Name</th>
+                <th data-sort="warmth_score">Warmth</th>
+                <th data-sort="email">Email</th>
+                <th data-sort="phone">Phone</th>
+                <th data-sort="city">City</th>
+                <th data-sort="state">State</th>
+                <th data-sort="organization">Organization</th>
+                <th data-sort="relationship">Relationship</th>
+                <th data-sort="tags">Tags</th>
+                <th data-sort="last_outreach_date">Last Contact</th>
+                <th data-sort="last_donation_date">Last Donation</th>
+                <th data-sort="total_donated">Total Donated</th>
+              </tr>
+              <tr class="search-filter-row">
+                <td><input type="text" class="filter-input" data-filter="name_filter" placeholder="Name..."></td>
+                <td>
+                  <div class="warmth-multiselect" data-filter="warmth_scores">
+                    <button type="button" class="filter-input warmth-multiselect-btn">All</button>
+                    <div class="warmth-multiselect-dropdown">
+                      <label><input type="checkbox" value="1"><span class="warmth-badge warmth-1">1</span></label>
+                      <label><input type="checkbox" value="2"><span class="warmth-badge warmth-2">2</span></label>
+                      <label><input type="checkbox" value="3"><span class="warmth-badge warmth-3">3</span></label>
+                      <label><input type="checkbox" value="4"><span class="warmth-badge warmth-4">4</span></label>
+                      <label><input type="checkbox" value="5"><span class="warmth-badge warmth-5">5</span></label>
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td><input type="text" class="filter-input" data-filter="email_filter" placeholder="Email..."></td>
-              <td><input type="text" class="filter-input" data-filter="phone_filter" placeholder="Phone..."></td>
-              <td><input type="text" class="filter-input" data-filter="city" placeholder="City..."></td>
-              <td><input type="text" class="filter-input" data-filter="state" placeholder="State..."></td>
-              <td><input type="text" class="filter-input" data-filter="organization" placeholder="Org..."></td>
-              <td><input type="text" class="filter-input" data-filter="relationship" placeholder="Rel..."></td>
-              <td class="search-tag-filter-cell"><div id="search-tag-picker"></div></td>
-              <td>
-                <div class="filter-date-range">
-                  <input type="date" class="filter-input" data-filter="outreach_from" title="From">
-                  <input type="date" class="filter-input" data-filter="outreach_to" title="To">
-                  <span class="filter-date-hint" id="hint-outreach"></span>
-                </div>
-              </td>
-              <td>
-                <div class="filter-date-range">
-                  <input type="date" class="filter-input" data-filter="donation_from" title="From">
-                  <input type="date" class="filter-input" data-filter="donation_to" title="To">
-                  <span class="filter-date-hint" id="hint-donation"></span>
-                </div>
-              </td>
-              <td>
-                <div class="filter-range">
-                  <input type="number" class="filter-input" data-filter="total_donated_min" placeholder="Min" step="0.01">
-                  <input type="number" class="filter-input" data-filter="total_donated_max" placeholder="Max" step="0.01">
-                  <span class="filter-date-hint" id="hint-donated"></span>
-                </div>
-              </td>
-            </tr>
-          </thead>
-          <tbody id="search-tbody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- IMPORT PAGE -->
-    <section id="page-import" class="page">
-      <div class="import-section">
-        <div id="import-step1">
-          <h2>Import Contacts</h2>
-          <p>Upload a CSV or Excel file to import contacts.</p>
-          <div class="drop-zone" id="drop-zone">
-            <p>Drag & drop a file here, or click to select</p>
-            <p class="drop-hint">Accepts .csv, .xlsx, .xls files</p>
-            <input type="file" id="import-file" accept=".csv,.xlsx,.xls" hidden>
-          </div>
-          <button id="btn-upload-preview" class="btn btn-primary" disabled>Upload & Preview</button>
+                </td>
+                <td><input type="text" class="filter-input" data-filter="email_filter" placeholder="Email..."></td>
+                <td><input type="text" class="filter-input" data-filter="phone_filter" placeholder="Phone..."></td>
+                <td><input type="text" class="filter-input" data-filter="city" placeholder="City..."></td>
+                <td><input type="text" class="filter-input" data-filter="state" placeholder="State..."></td>
+                <td><input type="text" class="filter-input" data-filter="organization" placeholder="Org..."></td>
+                <td><input type="text" class="filter-input" data-filter="relationship" placeholder="Rel..."></td>
+                <td class="search-tag-filter-cell"><div id="search-tag-picker"></div></td>
+                <td>
+                  <div class="filter-date-range">
+                    <input type="date" class="filter-input" data-filter="outreach_from" title="From">
+                    <input type="date" class="filter-input" data-filter="outreach_to" title="To">
+                    <span class="filter-date-hint" id="hint-outreach"></span>
+                  </div>
+                </td>
+                <td>
+                  <div class="filter-date-range">
+                    <input type="date" class="filter-input" data-filter="donation_from" title="From">
+                    <input type="date" class="filter-input" data-filter="donation_to" title="To">
+                    <span class="filter-date-hint" id="hint-donation"></span>
+                  </div>
+                </td>
+                <td>
+                  <div class="filter-range">
+                    <input type="number" class="filter-input" data-filter="total_donated_min" placeholder="Min" step="0.01">
+                    <input type="number" class="filter-input" data-filter="total_donated_max" placeholder="Max" step="0.01">
+                    <span class="filter-date-hint" id="hint-donated"></span>
+                  </div>
+                </td>
+              </tr>
+            </thead>
+            <tbody id="search-tbody"></tbody>
+          </table>
         </div>
+      </section>
 
-        <div id="import-step2" class="hidden">
-          <h2>Preview & Map Columns</h2>
-          <p id="import-summary"></p>
-          <div class="preview-table-wrap">
-            <table class="preview-table" id="preview-table"></table>
+      <!-- IMPORT PAGE -->
+      <section id="page-import" class="page">
+        <div class="import-section">
+          <div id="import-step1">
+            <h2>Import Contacts</h2>
+            <p>Upload a CSV or Excel file to import contacts.</p>
+            <div class="drop-zone" id="drop-zone">
+              <p>Drag & drop a file here, or click to select</p>
+              <p class="drop-hint">Accepts .csv, .xlsx, .xls files</p>
+              <input type="file" id="import-file" accept=".csv,.xlsx,.xls" hidden>
+            </div>
+            <button id="btn-upload-preview" class="btn btn-primary" disabled>Upload & Preview</button>
           </div>
-          <button id="btn-import-execute" class="btn btn-primary">Import Contacts</button>
-          <button id="btn-import-back" class="btn">Back</button>
 
-          <div class="import-preview-section">
-            <h3>Import Preview</h3>
-            <p class="import-preview-hint">This is how your contacts will appear after import.</p>
-            <div class="import-preview-table-wrap">
-              <table class="search-table import-preview-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>City</th>
-                    <th>State</th>
-                    <th>Organization</th>
-                    <th>Relationship</th>
-                    <th>Tags</th>
-                    <th>Last Contact</th>
-                    <th>Last Donation</th>
-                    <th>Total Donated</th>
-                  </tr>
-                </thead>
-                <tbody id="import-preview-tbody"></tbody>
-              </table>
+          <div id="import-step2" class="hidden">
+            <h2>Preview & Map Columns</h2>
+            <p id="import-summary"></p>
+            <div class="preview-table-wrap">
+              <table class="preview-table" id="preview-table"></table>
+            </div>
+            <button id="btn-import-execute" class="btn btn-primary">Import Contacts</button>
+            <button id="btn-import-back" class="btn">Back</button>
+
+            <div class="import-preview-section">
+              <h3>Import Preview</h3>
+              <p class="import-preview-hint">This is how your contacts will appear after import.</p>
+              <div class="import-preview-table-wrap">
+                <table class="search-table import-preview-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>City</th>
+                      <th>State</th>
+                      <th>Organization</th>
+                      <th>Relationship</th>
+                      <th>Tags</th>
+                      <th>Last Contact</th>
+                      <th>Last Donation</th>
+                      <th>Total Donated</th>
+                    </tr>
+                  </thead>
+                  <tbody id="import-preview-tbody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
+
+          <div id="import-step3" class="hidden">
+            <h2>Import Complete</h2>
+            <div id="import-results"></div>
+            <button id="btn-goto-contacts" class="btn btn-primary">Go to Contacts</button>
+          </div>
         </div>
+      </section>
 
-        <div id="import-step3" class="hidden">
-          <h2>Import Complete</h2>
-          <div id="import-results"></div>
-          <button id="btn-goto-contacts" class="btn btn-primary">Go to Contacts</button>
+      <!-- SETTINGS PAGE -->
+      <section id="page-settings" class="page">
+        <div class="settings-section">
+          <h2>Settings</h2>
+          <form id="settings-form">
+            <div class="form-group">
+              <label for="setting-name">Your Name</label>
+              <input type="text" id="setting-name" placeholder="Your full name">
+            </div>
+            <div class="form-group">
+              <label for="setting-context">Mission Context</label>
+              <textarea id="setting-context" rows="4" placeholder="Describe your mission, ministry, or organization in a few sentences. This helps the AI write more personalized messages."></textarea>
+            </div>
+            <div class="form-group">
+              <label for="setting-model">AI Model</label>
+              <select id="setting-model">
+                <option value="haiku">Claude Haiku (fastest, lowest cost)</option>
+                <option value="sonnet" selected>Claude Sonnet (balanced)</option>
+                <option value="opus">Claude Opus (most capable)</option>
+              </select>
+              <small>Choose which Claude model generates your recommendations.</small>
+            </div>
+            <div class="form-group">
+              <label for="setting-stale-days">Default Stale Contact Threshold (days)</label>
+              <input type="number" id="setting-stale-days" value="90" min="1">
+              <small>Contacts with no outreach in this many days will be flagged.</small>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+            <div id="settings-message" class="hidden"></div>
+          </form>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--gray-200);">
+
+          <!-- Change Password -->
+          <h3 style="margin-bottom: 8px;">Change Password</h3>
+          <form id="change-password-form">
+            <div class="form-group">
+              <label for="current-password">Current Password</label>
+              <input type="password" id="current-password" autocomplete="current-password">
+            </div>
+            <div class="form-group">
+              <label for="new-password">New Password</label>
+              <input type="password" id="new-password" autocomplete="new-password">
+              <small>Minimum 6 characters.</small>
+            </div>
+            <div class="form-group">
+              <label for="confirm-password">Confirm New Password</label>
+              <input type="password" id="confirm-password" autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn btn-primary">Update Password</button>
+            <div id="password-message" class="hidden"></div>
+          </form>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--gray-200);">
+
+          <div class="tag-manage-section">
+            <h3 style="margin-bottom: 8px;">Manage Tags</h3>
+            <p style="color: var(--gray-400); font-size: 14px; margin-bottom: 12px;">Add or remove tags available for tagging contacts. Tags currently assigned to contacts cannot be removed.</p>
+            <div class="tag-manage-add-row">
+              <input type="text" id="tag-manage-input" placeholder="New tag name...">
+              <button type="button" class="btn btn-primary btn-sm" id="btn-add-tag">Add Tag</button>
+            </div>
+            <div class="tag-manage-list" id="tag-manage-list"></div>
+            <div id="tag-manage-status" class="hidden" style="margin-top: 8px;"></div>
+          </div>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--gray-200);">
+
+          <h3 style="margin-bottom: 8px;">Warmth Scores</h3>
+          <p style="color: var(--gray-400); font-size: 14px; margin-bottom: 16px;">Force a recalculation of warmth scores for all contacts, regardless of when they were last calculated.</p>
+          <button id="btn-recalculate-warmth" class="btn btn-primary">Recalculate All Warmth Scores</button>
+          <div id="recalculate-warmth-status" class="hidden" style="margin-top: 12px;"></div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- SETTINGS PAGE -->
-    <section id="page-settings" class="page">
-      <div class="settings-section">
-        <h2>Settings</h2>
-        <form id="settings-form">
-          <div class="form-group">
-            <label for="setting-name">Your Name</label>
-            <input type="text" id="setting-name" placeholder="Your full name">
-          </div>
-          <div class="form-group">
-            <label for="setting-context">Mission Context</label>
-            <textarea id="setting-context" rows="4" placeholder="Describe your mission, ministry, or organization in a few sentences. This helps the AI write more personalized messages."></textarea>
-          </div>
-          <div class="form-group">
-            <label for="setting-model">AI Model</label>
-            <select id="setting-model">
-              <option value="haiku">Claude Haiku (fastest, lowest cost)</option>
-              <option value="sonnet" selected>Claude Sonnet (balanced)</option>
-              <option value="opus">Claude Opus (most capable)</option>
-            </select>
-            <small>Choose which Claude model generates your recommendations.</small>
-          </div>
-          <div class="form-group">
-            <label for="setting-stale-days">Default Stale Contact Threshold (days)</label>
-            <input type="number" id="setting-stale-days" value="90" min="1">
-            <small>Contacts with no outreach in this many days will be flagged.</small>
-          </div>
-          <button type="submit" class="btn btn-primary">Save Settings</button>
-          <div id="settings-message" class="hidden"></div>
-        </form>
+      <!-- ADMIN PAGE -->
+      <section id="page-admin" class="page">
+        <div class="settings-section" style="max-width: 800px;">
+          <h2>User Management</h2>
+          <p style="color: var(--gray-400); font-size: 14px; margin-bottom: 16px;">Create, edit, and delete user accounts. Each user has their own isolated data.</p>
 
-        <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--gray-200);">
+          <button id="btn-add-user" class="btn btn-primary" style="margin-bottom: 16px;">Add New User</button>
 
-        <div class="tag-manage-section">
-          <h3 style="margin-bottom: 8px;">Manage Tags</h3>
-          <p style="color: var(--gray-400); font-size: 14px; margin-bottom: 12px;">Add or remove tags available for tagging contacts. Tags currently assigned to contacts cannot be removed.</p>
-          <div class="tag-manage-add-row">
-            <input type="text" id="tag-manage-input" placeholder="New tag name...">
-            <button type="button" class="btn btn-primary btn-sm" id="btn-add-tag">Add Tag</button>
+          <div id="admin-user-form-wrap" class="hidden" style="margin-bottom: 24px;">
+            <div class="admin-user-form-card">
+              <h3 id="admin-form-title">Add User</h3>
+              <form id="admin-user-form">
+                <input type="hidden" id="admin-user-id">
+                <div class="form-group">
+                  <label for="admin-username">Username</label>
+                  <input type="text" id="admin-username" required>
+                </div>
+                <div class="form-group">
+                  <label for="admin-password">Password</label>
+                  <input type="password" id="admin-password" autocomplete="new-password">
+                  <small id="admin-password-hint">Minimum 6 characters.</small>
+                </div>
+                <div class="form-group">
+                  <label for="admin-display-name">Display Name</label>
+                  <input type="text" id="admin-display-name">
+                </div>
+                <div class="form-group">
+                  <label for="admin-role">Role</label>
+                  <select id="admin-role">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div style="display:flex;gap:8px;">
+                  <button type="submit" class="btn btn-primary">Save</button>
+                  <button type="button" class="btn" id="btn-cancel-user">Cancel</button>
+                </div>
+                <div id="admin-form-message" class="hidden" style="margin-top: 8px;"></div>
+              </form>
+            </div>
           </div>
-          <div class="tag-manage-list" id="tag-manage-list"></div>
-          <div id="tag-manage-status" class="hidden" style="margin-top: 8px;"></div>
+
+          <table class="admin-users-table" id="admin-users-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Display Name</th>
+                <th>Role</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-tbody"></tbody>
+          </table>
         </div>
-
-        <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--gray-200);">
-
-        <h3 style="margin-bottom: 8px;">Warmth Scores</h3>
-        <p style="color: var(--gray-400); font-size: 14px; margin-bottom: 16px;">Force a recalculation of warmth scores for all contacts, regardless of when they were last calculated.</p>
-        <button id="btn-recalculate-warmth" class="btn btn-primary">Recalculate All Warmth Scores</button>
-        <div id="recalculate-warmth-status" class="hidden" style="margin-top: 12px;"></div>
-      </div>
-    </section>
-  </main>
+      </section>
+    </main>
+  </div>
 
   <!-- CONTACT DETAIL MODAL -->
   <div id="contact-modal" class="modal hidden">
@@ -352,11 +467,13 @@
   </div>
 
   <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/home.js"></script>
   <script src="js/contacts.js"></script>
   <script src="js/search.js"></script>
   <script src="js/import.js"></script>
   <script src="js/settings.js"></script>
+  <script src="js/admin.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
