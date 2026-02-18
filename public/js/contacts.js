@@ -68,7 +68,7 @@ function renderContactsTable(contacts) {
     const tr = document.createElement('tr');
     tr.addEventListener('click', () => openContactDetail(c.id));
     tr.innerHTML = `
-      <td><strong>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</strong></td>
+      <td><div class="contact-name-cell"><img class="avatar avatar-sm" src="${getPhotoUrl(c, 64)}" alt=""><strong>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</strong></div></td>
       <td>${escapeHtml(c.email || '')}</td>
       <td>${escapeHtml(c.phone || '')}</td>
       <td>${formatDate(c.last_outreach_date)}</td>
@@ -141,6 +141,15 @@ function renderContactModal(contact) {
   const totalDonated = donations.reduce((sum, d) => sum + d.amount, 0);
 
   body.innerHTML = `
+    <div class="contact-photo-section">
+      <div class="contact-photo-wrapper">
+        <img class="avatar avatar-lg" id="contact-photo" src="${getPhotoUrl(contact, 256)}" alt="">
+        <label class="photo-upload-btn" title="Upload photo">
+          <input type="file" id="photo-upload-input" accept="image/*" hidden>
+          <span class="photo-upload-icon">&#x1F4F7;</span>
+        </label>
+      </div>
+    </div>
     <form id="contact-edit-form" data-id="${contact.id}">
       <div class="contact-form-grid">
         <div class="form-group">
@@ -266,6 +275,21 @@ function renderContactModal(contact) {
       loadContacts();
     } catch (err) {
       alert('Error: ' + err.message);
+    }
+  });
+
+  // Photo upload
+  body.querySelector('#photo-upload-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('photo', file);
+    try {
+      const updated = await api(`api/contacts/${contact.id}/photo`, { method: 'POST', body: formData });
+      document.getElementById('contact-photo').src = getPhotoUrl(updated, 256);
+      loadContacts();
+    } catch (err) {
+      alert('Error uploading photo: ' + err.message);
     }
   });
 

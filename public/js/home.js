@@ -162,9 +162,10 @@ function renderAiResults(data) {
 
     const card = document.createElement('div');
     card.className = 'result-card';
+    const photoSrc = getPhotoUrl(c, 64);
     card.innerHTML = `
       <div class="result-card-header">
-        <h3>${escapeHtml(name)}</h3>
+        <div class="result-card-name"><img class="avatar avatar-sm" src="${photoSrc}" alt=""><h3>${escapeHtml(name)}</h3></div>
         <button class="btn btn-sm btn-log-outreach" data-contact-id="${rec.contact_id}" data-mode="email" data-subject="${escapeHtml(emailDraft.subject || '')}" data-content="${escapeHtml(emailDraft.body || '')}">Log This Outreach</button>
       </div>
       <div class="result-meta">

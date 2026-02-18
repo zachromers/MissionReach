@@ -607,6 +607,71 @@ input:focus, textarea:focus, select:focus {
   margin: 1px 2px;
 }
 
+/* Avatars */
+.avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.avatar-sm {
+  width: 32px;
+  height: 32px;
+}
+
+.avatar-lg {
+  width: 96px;
+  height: 96px;
+}
+
+.contact-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.contact-photo-section {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.contact-photo-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.photo-upload-btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  background: var(--blue-600);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: background 0.2s;
+}
+
+.photo-upload-btn:hover {
+  background: var(--blue-700);
+}
+
+.photo-upload-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.result-card-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 /* Import */
 .import-section {
   max-width: 700px;

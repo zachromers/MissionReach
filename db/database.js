@@ -144,6 +144,26 @@ async function initialize() {
   const schema = fs.readFileSync(SCHEMA_PATH, 'utf-8');
   db._db.run(schema);
 
+  // Migrate: add photo_url column if missing
+  try {
+    db.prepare('SELECT photo_url FROM contacts LIMIT 1').get();
+  } catch (e) {
+    db._db.run('ALTER TABLE contacts ADD COLUMN photo_url TEXT');
+    _saveDb();
+  }
+
+  // Backfill: generate default avatars for contacts without a photo
+  const backgrounds = ['4f46e5','7c3aed','2563eb','0891b2','059669','d97706','dc2626','be185d'];
+  const noPhoto = db.prepare("SELECT id, first_name, last_name FROM contacts WHERE photo_url IS NULL OR photo_url = ''").all();
+  if (noPhoto.length > 0) {
+    const updatePhoto = db.prepare('UPDATE contacts SET photo_url = ? WHERE id = ?');
+    for (const c of noPhoto) {
+      const bg = backgrounds[c.id % backgrounds.length];
+      const url = `https://ui-avatars.com/api/?name=${encodeURIComponent(c.first_name || '')}+${encodeURIComponent(c.last_name || '')}&background=${bg}&color=fff&size=128&bold=true`;
+      updatePhoto.run(url, c.id);
+    }
+  }
+
   // Seed default settings if empty
   const countResult = db.prepare('SELECT COUNT(*) as cnt FROM settings').get();
   if (countResult.cnt === 0) {

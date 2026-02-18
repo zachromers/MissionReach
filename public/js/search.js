@@ -104,7 +104,7 @@ function renderSearchTable(contacts) {
     const tr = document.createElement('tr');
     tr.addEventListener('click', () => openContactDetail(c.id));
     tr.innerHTML = `
-      <td>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</td>
+      <td><div class="contact-name-cell"><img class="avatar avatar-sm" src="${getPhotoUrl(c, 64)}" alt=""><span>${escapeHtml(c.first_name)} ${escapeHtml(c.last_name)}</span></div></td>
       <td>${escapeHtml(c.email || '')}</td>
       <td>${escapeHtml(c.phone || '')}</td>
       <td>${escapeHtml(c.city || '')}</td>

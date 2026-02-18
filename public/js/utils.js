@@ -41,6 +41,12 @@ function renderTags(tags) {
     .map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join(' ');
 }
 
+function getPhotoUrl(contact, size = 128) {
+  if (contact.photo_url) return contact.photo_url;
+  const name = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || '?';
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f46e5&color=fff&size=${size}&bold=true`;
+}
+
 const MODE_ICONS = {
   email: '\u{1F4E7}',
   sms: '\u{1F4AC}',

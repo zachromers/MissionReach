@@ -1,6 +1,37 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { getDb } = require('../db/database');
+
+// Configure multer for contact photo uploads
+const photosDir = path.join(__dirname, '..', 'public', 'uploads', 'photos');
+if (!fs.existsSync(photosDir)) {
+  fs.mkdirSync(photosDir, { recursive: true });
+}
+
+const photoStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, photosDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `contact-${req.params.id}-${Date.now()}${ext}`);
+  },
+});
+
+const photoUpload = multer({
+  storage: photoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (jpg, png, gif, webp) are allowed'));
+    }
+  },
+});
 
 // Shared query builder for contacts list + CSV export
 function buildContactQuery(query) {
@@ -211,10 +242,14 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'first_name and last_name are required' });
     }
 
+    // Generate default avatar URL
+    const bg = ['4f46e5','7c3aed','2563eb','0891b2','059669','d97706','dc2626','be185d'][Math.floor(Math.random() * 8)];
+    const defaultPhoto = `https://ui-avatars.com/api/?name=${encodeURIComponent(first_name)}+${encodeURIComponent(last_name)}&background=${bg}&color=fff&size=128&bold=true`;
+
     const result = db.prepare(`
-      INSERT INTO contacts (first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(first_name, last_name, email || null, phone || null, address_line1 || null, address_line2 || null, city || null, state || null, zip || null, country || 'US', organization || null, relationship || null, notes || null, tags || null);
+      INSERT INTO contacts (first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags, photo_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(first_name, last_name, email || null, phone || null, address_line1 || null, address_line2 || null, city || null, state || null, zip || null, country || 'US', organization || null, relationship || null, notes || null, tags || null, defaultPhoto);
 
     const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(contact);
@@ -230,7 +265,7 @@ router.put('/:id', (req, res) => {
     const existing = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Contact not found' });
 
-    const fields = ['first_name', 'last_name', 'email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'zip', 'country', 'organization', 'relationship', 'notes', 'tags'];
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'zip', 'country', 'organization', 'relationship', 'notes', 'tags', 'photo_url'];
     const updates = [];
     const params = [];
 
@@ -339,6 +374,31 @@ router.post('/:id/outreaches', (req, res) => {
 
     const outreach = db.prepare('SELECT * FROM outreaches WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(outreach);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/contacts/:id/photo — upload a photo
+router.post('/:id/photo', photoUpload.single('photo'), (req, res) => {
+  try {
+    const db = getDb();
+    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
+    if (!contact) return res.status(404).json({ error: 'Contact not found' });
+
+    if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
+
+    // Delete old uploaded photo if it exists (don't delete external URLs)
+    if (contact.photo_url && contact.photo_url.startsWith('/uploads/photos/')) {
+      const oldPath = path.join(__dirname, '..', 'public', contact.photo_url);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    const photoUrl = `/uploads/photos/${req.file.filename}`;
+    db.prepare('UPDATE contacts SET photo_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(photoUrl, req.params.id);
+
+    const updated = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

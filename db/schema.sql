@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS contacts (
   relationship TEXT,
   notes TEXT,
   tags TEXT,
+  photo_url TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

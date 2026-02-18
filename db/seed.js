@@ -89,6 +89,11 @@ const streets = [
 
 const donationMethods = ['check','online','cash','bank transfer','online','online','check'];
 
+const avatarBackgrounds = [
+  '4f46e5','7c3aed','2563eb','0891b2','059669','d97706','dc2626','be185d',
+  'ea580c','4338ca','0d9488','65a30d','c026d3','0284c7','9333ea','16a34a',
+];
+
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 function randDate(startYear, endYear) {
@@ -125,6 +130,9 @@ async function seed() {
     const streetNum = randInt(100, 9999);
     const street = pick(streets);
 
+    const bg = pick(avatarBackgrounds);
+    const photoUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(first)}+${encodeURIComponent(last)}&background=${bg}&color=fff&size=128&bold=true`;
+
     contacts.push({
       first_name: first,
       last_name: last,
@@ -140,20 +148,21 @@ async function seed() {
       relationship: pick(relationships),
       notes: null,
       tags: pick(tagSets) || null,
+      photo_url: photoUrl,
     });
   }
 
   // Insert contacts
   const insertContact = db.prepare(`
-    INSERT INTO contacts (first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO contacts (first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags, photo_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const c of contacts) {
     insertContact.run(
       c.first_name, c.last_name, c.email, c.phone,
       c.address_line1, c.address_line2, c.city, c.state, c.zip, c.country,
-      c.organization, c.relationship, c.notes, c.tags
+      c.organization, c.relationship, c.notes, c.tags, c.photo_url
     );
   }
 
