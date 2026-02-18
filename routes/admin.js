@@ -4,6 +4,15 @@ const bcrypt = require('bcryptjs');
 const { getDb } = require('../db/database');
 const { requireAdmin } = require('../middleware/auth');
 
+// Input sanitization helpers
+function stripHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/<[^>]*>/g, '').trim();
+}
+function validateUsername(u) {
+  return /^[a-zA-Z0-9_.-]+$/.test(u);
+}
+
 // All admin routes require admin role (requireAuth is applied at server level)
 router.use(requireAdmin);
 
@@ -21,12 +30,24 @@ router.get('/users', (req, res) => {
 // POST /api/admin/users — create a user
 router.post('/users', (req, res) => {
   try {
-    const { username, email, display_name, role } = req.body;
+    const username = stripHtml(req.body.username);
+    const email = stripHtml(req.body.email);
+    const display_name = stripHtml(req.body.display_name || '');
+    const { role } = req.body;
+
     if (!username) {
       return res.status(400).json({ error: 'Username is required' });
     }
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
+    }
+
+    if (username.length > 64 || email.length > 255 || display_name.length > 128) {
+      return res.status(400).json({ error: 'Input exceeds maximum length' });
+    }
+
+    if (!validateUsername(username)) {
+      return res.status(400).json({ error: 'Username may only contain letters, numbers, underscores, hyphens, and dots' });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -66,7 +87,24 @@ router.put('/users/:id', (req, res) => {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const { username, password, display_name, email, role } = req.body;
+    const username = req.body.username ? stripHtml(req.body.username) : undefined;
+    const email = req.body.email !== undefined ? stripHtml(req.body.email) : undefined;
+    const display_name = req.body.display_name !== undefined ? stripHtml(req.body.display_name) : undefined;
+    const { password, role } = req.body;
+
+    if (username && username.length > 64) {
+      return res.status(400).json({ error: 'Username exceeds maximum length' });
+    }
+    if (email && email.length > 255) {
+      return res.status(400).json({ error: 'Email exceeds maximum length' });
+    }
+    if (display_name && display_name.length > 128) {
+      return res.status(400).json({ error: 'Display name exceeds maximum length' });
+    }
+
+    if (username && !validateUsername(username)) {
+      return res.status(400).json({ error: 'Username may only contain letters, numbers, underscores, hyphens, and dots' });
+    }
 
     if (username && username !== user.username) {
       const existing = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE AND id != ?').get(username, req.params.id);

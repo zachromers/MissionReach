@@ -5,6 +5,15 @@ const jwt = require('jsonwebtoken');
 const { getDb } = require('../db/database');
 const { getJwtSecret, requireAuth } = require('../middleware/auth');
 
+// Input sanitization helpers
+function stripHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/<[^>]*>/g, '').trim();
+}
+function validateUsername(u) {
+  return /^[a-zA-Z0-9_.-]+$/.test(u);
+}
+
 const TOKEN_EXPIRY = '7d';
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -16,7 +25,8 @@ const COOKIE_OPTIONS = {
 // POST /api/auth/login
 router.post('/login', (req, res) => {
   try {
-    const { username, password } = req.body;
+    const username = stripHtml(req.body.username);
+    const password = req.body.password;
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
     }
@@ -52,10 +62,21 @@ router.post('/login', (req, res) => {
 // POST /api/auth/register — self-registration (public)
 router.post('/register', (req, res) => {
   try {
-    const { username, email, display_name, password, confirm_password } = req.body;
+    const username = stripHtml(req.body.username);
+    const email = stripHtml(req.body.email);
+    const display_name = stripHtml(req.body.display_name);
+    const { password, confirm_password } = req.body;
 
     if (!username || !email || !display_name || !password || !confirm_password) {
       return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    if (username.length > 64 || email.length > 255 || display_name.length > 128) {
+      return res.status(400).json({ error: 'Input exceeds maximum length' });
+    }
+
+    if (!validateUsername(username)) {
+      return res.status(400).json({ error: 'Username may only contain letters, numbers, underscores, hyphens, and dots' });
     }
 
     // Validate email format
