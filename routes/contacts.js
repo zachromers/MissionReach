@@ -43,6 +43,7 @@ function buildContactQuery(query) {
     donation_from, donation_to,
     total_donated_min, total_donated_max,
     has_email, has_phone,
+    warmth_min, tags_filter,
     stale_days, donated_since, contacted_since } = query;
 
   let sql = `
@@ -96,6 +97,14 @@ function buildContactQuery(query) {
   if (relationship) {
     sql += ` AND c.relationship LIKE ?`;
     params.push(`%${relationship}%`);
+  }
+  if (warmth_min) {
+    sql += ` AND c.warmth_score >= ?`;
+    params.push(Number(warmth_min));
+  }
+  if (tags_filter) {
+    sql += ` AND (',' || c.tags || ',') LIKE ?`;
+    params.push(`%${tags_filter}%`);
   }
 
   // Boolean filters
@@ -159,7 +168,7 @@ function buildContactQuery(query) {
     params.push(Number(total_donated_max));
   }
 
-  const allowedSorts = ['first_name', 'last_name', 'email', 'created_at', 'last_outreach_date', 'last_donation_date', 'total_donated', 'city', 'state', 'organization', 'relationship', 'phone'];
+  const allowedSorts = ['first_name', 'last_name', 'email', 'created_at', 'last_outreach_date', 'last_donation_date', 'total_donated', 'city', 'state', 'organization', 'relationship', 'phone', 'warmth_score', 'tags'];
   const sortCol = allowedSorts.includes(sort) ? sort : 'last_name';
   const sortOrder = order === 'desc' ? 'DESC' : 'ASC';
   sql += ` ORDER BY ${sortCol} ${sortOrder}`;

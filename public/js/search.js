@@ -150,10 +150,10 @@ document.addEventListener('input', (e) => {
   searchDebounceTimer = setTimeout(loadSearchResults, 400);
 });
 
-// Date/number inputs — immediate on change
+// Date/number/select inputs — immediate on change
 document.addEventListener('change', (e) => {
   if (!e.target.closest('#page-search') || !e.target.classList.contains('filter-input')) return;
-  if (e.target.type === 'date' || e.target.type === 'number') {
+  if (e.target.type === 'date' || e.target.type === 'number' || e.target.tagName === 'SELECT') {
     updateDateHints();
     loadSearchResults();
   }

@@ -125,28 +125,37 @@
           <thead>
             <tr class="search-col-headers">
               <th data-sort="last_name">Name</th>
-              <th>Warmth</th>
+              <th data-sort="warmth_score">Warmth</th>
               <th data-sort="email">Email</th>
               <th data-sort="phone">Phone</th>
               <th data-sort="city">City</th>
               <th data-sort="state">State</th>
               <th data-sort="organization">Organization</th>
               <th data-sort="relationship">Relationship</th>
-              <th>Tags</th>
+              <th data-sort="tags">Tags</th>
               <th data-sort="last_outreach_date">Last Contact</th>
               <th data-sort="last_donation_date">Last Donation</th>
               <th data-sort="total_donated">Total Donated</th>
             </tr>
             <tr class="search-filter-row">
               <td><input type="text" class="filter-input" data-filter="name_filter" placeholder="Name..."></td>
-              <td></td>
+              <td>
+                <select class="filter-input" data-filter="warmth_min">
+                  <option value="">All</option>
+                  <option value="1">1+</option>
+                  <option value="2">2+</option>
+                  <option value="3">3+</option>
+                  <option value="4">4+</option>
+                  <option value="5">5</option>
+                </select>
+              </td>
               <td><input type="text" class="filter-input" data-filter="email_filter" placeholder="Email..."></td>
               <td><input type="text" class="filter-input" data-filter="phone_filter" placeholder="Phone..."></td>
               <td><input type="text" class="filter-input" data-filter="city" placeholder="City..."></td>
               <td><input type="text" class="filter-input" data-filter="state" placeholder="State..."></td>
               <td><input type="text" class="filter-input" data-filter="organization" placeholder="Org..."></td>
               <td><input type="text" class="filter-input" data-filter="relationship" placeholder="Rel..."></td>
-              <td></td>
+              <td><input type="text" class="filter-input" data-filter="tags_filter" placeholder="Tag..."></td>
               <td>
                 <div class="filter-date-range">
                   <input type="date" class="filter-input" data-filter="outreach_from" title="From">
