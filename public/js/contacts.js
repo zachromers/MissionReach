@@ -151,13 +151,13 @@ function renderContactModal(contact) {
             <span class="photo-upload-icon">&#x1F4F7;</span>
           </label>
         </div>
-        <div style="margin-top:8px;text-align:center;">
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding-left:16px;">
+        <div>
           <span style="font-size:12px;color:var(--gray-500);margin-right:4px;">Warmth:</span>${renderWarmthScore(contact.warmth_score, contact.warmth_score_reason)}
         </div>
+        ${contact.warmth_score_reason ? `<p style="margin:6px 0 0;font-size:12px;color:var(--gray-500);line-height:1.5;">${escapeHtml(contact.warmth_score_reason)}</p>` : ''}
       </div>
-      ${contact.warmth_score_reason ? `<div style="flex:1;display:flex;align-items:center;padding-left:16px;">
-        <p style="margin:0;font-size:12px;color:var(--gray-500);line-height:1.5;">${escapeHtml(contact.warmth_score_reason)}</p>
-      </div>` : ''}
     </div>
     <form id="contact-edit-form" data-id="${contact.id}">
       <div class="contact-form-grid">
