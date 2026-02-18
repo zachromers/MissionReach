@@ -25,23 +25,13 @@
   <main class="content">
     <!-- HOME PAGE -->
     <section id="page-home" class="page active">
-      <div class="dashboard-stats">
-        <div class="stat-card">
-          <div class="stat-value" id="stat-total-contacts">0</div>
-          <div class="stat-label">Total Contacts</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="stat-stale-contacts">0</div>
-          <div class="stat-label">Stale Contacts</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="stat-ytd-donations">$0</div>
-          <div class="stat-label">Donations (YTD)</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="stat-outreaches-month">0</div>
-          <div class="stat-label">Outreaches This Month</div>
-        </div>
+      <div class="carousel-toolbar">
+        <button class="btn btn-sm" id="carousel-sort-toggle">Warmth: High → Low</button>
+      </div>
+      <div class="contact-carousel-wrapper">
+        <button class="carousel-arrow carousel-arrow-left" id="carousel-left" aria-label="Scroll left">&#8249;</button>
+        <div class="contact-carousel" id="contact-carousel"></div>
+        <button class="carousel-arrow carousel-arrow-right" id="carousel-right" aria-label="Scroll right">&#8250;</button>
       </div>
 
       <p id="warmth-status" class="hidden" style="text-align:center;color:var(--gray-400);font-size:13px;margin-bottom:12px;">Updating warmth scores...</p>

@@ -3,7 +3,7 @@
 const MODEL_LABELS = { haiku: 'Claude Haiku', sonnet: 'Claude Sonnet', opus: 'Claude Opus' };
 
 function initHome() {
-  loadDashboardStats();
+  loadContactCarousel();
   loadModelIndicator();
   refreshWarmthScores();
 }
@@ -36,16 +36,80 @@ async function loadModelIndicator() {
 }
 
 let cachedStaleDays = 90;
+let carouselContacts = [];
+let carouselSortDesc = true; // true = high→low, false = low→high
 
-async function loadDashboardStats() {
+async function loadContactCarousel() {
+  const carousel = document.getElementById('contact-carousel');
+  if (!carousel) return;
   try {
-    const stats = await api('api/ai/stats');
-    document.getElementById('stat-total-contacts').textContent = stats.totalContacts;
-    document.getElementById('stat-stale-contacts').textContent = stats.staleContacts;
-    document.getElementById('stat-ytd-donations').textContent = formatCurrency(stats.ytdDonations);
-    document.getElementById('stat-outreaches-month').textContent = stats.outreachesThisMonth;
-    if (stats.staleDays) cachedStaleDays = stats.staleDays;
-  } catch {}
+    carouselContacts = await api('api/contacts');
+    renderCarousel();
+  } catch (err) {
+    carousel.innerHTML = '<p style="color:var(--gray-400);padding:20px;">Unable to load contacts.</p>';
+  }
+}
+
+function renderCarousel() {
+  const carousel = document.getElementById('contact-carousel');
+  if (!carousel) return;
+  const sorted = [...carouselContacts].sort((a, b) => {
+    return carouselSortDesc
+      ? (b.warmth_score || 0) - (a.warmth_score || 0)
+      : (a.warmth_score || 0) - (b.warmth_score || 0);
+  });
+  carousel.innerHTML = '';
+  for (const c of sorted) {
+    const score = c.warmth_score || 0;
+    const firstName = c.first_name || '';
+    const lastInitial = c.last_name ? c.last_name.charAt(0).toUpperCase() + '.' : '';
+    const displayName = `${firstName} ${lastInitial}`.trim() || '?';
+    const photoSrc = getPhotoUrl(c, 128);
+
+    const tile = document.createElement('div');
+    tile.className = `carousel-tile carousel-warmth-${Math.min(5, Math.max(0, score))}`;
+    tile.dataset.contactId = c.id;
+    tile.innerHTML = `
+      <img class="carousel-photo" src="${photoSrc}" alt="${escapeHtml(displayName)}">
+      <div class="carousel-name">${escapeHtml(displayName)}</div>
+      <div class="carousel-score">${renderWarmthScore(score)}</div>
+    `;
+    tile.addEventListener('click', () => {
+      if (typeof openContactDetail === 'function') openContactDetail(c.id);
+    });
+    carousel.appendChild(tile);
+  }
+  initCarouselScroll();
+}
+
+document.getElementById('carousel-sort-toggle').addEventListener('click', () => {
+  carouselSortDesc = !carouselSortDesc;
+  const btn = document.getElementById('carousel-sort-toggle');
+  btn.textContent = carouselSortDesc ? 'Warmth: High \u2192 Low' : 'Warmth: Low \u2192 High';
+  renderCarousel();
+});
+
+function initCarouselScroll() {
+  const carousel = document.getElementById('contact-carousel');
+  const leftBtn = document.getElementById('carousel-left');
+  const rightBtn = document.getElementById('carousel-right');
+  if (!carousel || !leftBtn || !rightBtn) return;
+
+  const scrollAmount = 300;
+  leftBtn.addEventListener('click', () => {
+    carousel.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+  });
+  rightBtn.addEventListener('click', () => {
+    carousel.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+  });
+
+  function updateArrows() {
+    leftBtn.classList.toggle('carousel-arrow-hidden', carousel.scrollLeft <= 0);
+    rightBtn.classList.toggle('carousel-arrow-hidden', carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 1);
+  }
+  carousel.addEventListener('scroll', updateArrows);
+  // Use setTimeout to let the browser lay out the carousel first
+  setTimeout(updateArrows, 100);
 }
 
 function navigateToSearch(extraParams) {
@@ -55,27 +119,6 @@ function navigateToSearch(extraParams) {
   // initSearch is called by the tab click handler, but we need to re-call with params
   initSearch(extraParams);
 }
-
-// Stat card clicks
-document.querySelectorAll('.stat-card').forEach(card => {
-  card.style.cursor = 'pointer';
-  card.addEventListener('click', () => {
-    const valueEl = card.querySelector('.stat-value');
-    const id = valueEl ? valueEl.id : '';
-    if (id === 'stat-total-contacts') {
-      navigateToSearch();
-    } else if (id === 'stat-stale-contacts') {
-      navigateToSearch({ stale_days: String(cachedStaleDays) });
-    } else if (id === 'stat-ytd-donations') {
-      const yearStart = new Date().getFullYear() + '-01-01';
-      navigateToSearch({ donated_since: yearStart });
-    } else if (id === 'stat-outreaches-month') {
-      const now = new Date();
-      const monthStart = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
-      navigateToSearch({ contacted_since: monthStart });
-    }
-  });
-});
 
 // Daily rotating prompt
 const DAILY_PROMPTS = [
@@ -269,7 +312,7 @@ document.getElementById('btn-log-all').addEventListener('click', async () => {
       btn.textContent = 'Log All as Outreach';
       btn.disabled = false;
     }, 2000);
-    loadDashboardStats();
+    loadContactCarousel();
   } catch (err) {
     alert('Error logging outreaches: ' + err.message);
     btn.textContent = 'Log All as Outreach';
@@ -319,7 +362,7 @@ document.getElementById('outreach-form').addEventListener('submit', async (e) =>
       },
     });
     hideModal('outreach-modal');
-    loadDashboardStats();
+    loadContactCarousel();
   } catch (err) {
     alert('Error: ' + err.message);
   }

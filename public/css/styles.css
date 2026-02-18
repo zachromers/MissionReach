@@ -233,45 +233,149 @@ input:focus, textarea:focus, select:focus {
 
 .input-with-toggle input { flex: 1; }
 
-/* Dashboard Stats */
-.dashboard-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+/* Contact Carousel */
+.carousel-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.contact-carousel-wrapper {
+  position: relative;
   margin-bottom: 32px;
 }
 
-.stat-card {
-  background: var(--white);
+.contact-carousel {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 12px 4px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-300) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.contact-carousel::-webkit-scrollbar {
+  height: 6px;
+}
+
+.contact-carousel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.contact-carousel::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 3px;
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   border: 1px solid var(--gray-200);
-  border-radius: 14px;
-  padding: 20px;
-  text-align: center;
-  box-shadow: var(--shadow);
+  background: var(--white);
+  box-shadow: var(--shadow-md);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--gray-600);
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
 }
 
-.stat-card:hover {
+.carousel-arrow:hover {
+  background: var(--gray-50);
   border-color: var(--blue-500);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-  background: linear-gradient(135deg, var(--white) 0%, var(--blue-50) 100%);
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
   color: var(--blue-600);
+  box-shadow: var(--shadow-lg);
 }
 
-.stat-label {
-  font-size: 11px;
+.carousel-arrow-left { left: -12px; }
+.carousel-arrow-right { right: -12px; }
+
+.carousel-arrow-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.carousel-tile {
+  flex-shrink: 0;
+  width: 120px;
+  padding: 16px 12px;
+  border-radius: 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1.5px solid transparent;
+}
+
+.carousel-tile:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.carousel-photo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 8px;
+  border: 3px solid rgba(255,255,255,0.7);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.carousel-name {
+  font-size: 13px;
   font-weight: 600;
-  color: var(--gray-500);
-  margin-top: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--gray-800);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.carousel-score {
+  display: flex;
+  justify-content: center;
+}
+
+/* Warmth-based carousel tile backgrounds */
+.carousel-warmth-0 {
+  background: var(--gray-100);
+  border-color: var(--gray-200);
+}
+
+.carousel-warmth-1 {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-color: var(--gray-300);
+}
+
+.carousel-warmth-2 {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-color: #93c5fd;
+}
+
+.carousel-warmth-3 {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: #fcd34d;
+}
+
+.carousel-warmth-4 {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border-color: #fdba74;
+}
+
+.carousel-warmth-5 {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-color: #fca5a5;
 }
 
 /* Prompt Section */
@@ -1115,16 +1219,17 @@ input:focus, textarea:focus, select:focus {
 
 /* Responsive */
 @media (max-width: 768px) {
-  .dashboard-stats { grid-template-columns: repeat(2, 1fr); }
   .contact-form-grid { grid-template-columns: 1fr; }
   .contacts-search-row { flex-wrap: wrap; }
   .nav-tabs { gap: 0; }
   .nav-tab { padding: 8px 10px; font-size: 13px; }
+  .carousel-tile { width: 100px; padding: 12px 8px; }
+  .carousel-photo { width: 56px; height: 56px; }
+  .carousel-name { font-size: 12px; }
+  .carousel-arrow { display: none; }
 }
 
 @media (max-width: 480px) {
-  .dashboard-stats { grid-template-columns: 1fr; }
   .content { padding: 16px; }
   .nav-brand { font-size: 17px; }
-  .stat-card { padding: 16px; }
 }
