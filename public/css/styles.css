@@ -578,6 +578,7 @@ input:focus, textarea:focus, select:focus {
   align-items: center;
 }
 .send-email-btn:hover { background: var(--blue-700); color: var(--white); }
+.send-email-btn.disabled { opacity: 0.45; pointer-events: none; }
 
 .reasoning-section {
   margin-top: 16px;

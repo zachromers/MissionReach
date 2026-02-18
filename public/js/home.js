@@ -439,8 +439,14 @@ function updateSendEmailButton() {
   const content = document.getElementById('outreach-content').value;
   const btn = document.getElementById('btn-send-email');
   if (mode === 'email' && email) {
-    btn.href = buildMailtoLink(email, subject, content);
     btn.classList.remove('hidden');
+    if (subject.trim() || content.trim()) {
+      btn.href = buildMailtoLink(email, subject, content);
+      btn.classList.remove('disabled');
+    } else {
+      btn.removeAttribute('href');
+      btn.classList.add('disabled');
+    }
   } else {
     btn.classList.add('hidden');
   }
