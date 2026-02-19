@@ -1,12 +1,17 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
+const { logger } = require('../middleware/logger');
 
 const DB_PATH = path.join(__dirname, 'missionreach.db');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
+const BACKUP_DIR = path.join(__dirname, 'backups');
+const MAX_BACKUPS = 5;
+const BACKUP_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 let db = null;
 let initPromise = null;
+let backupTimer = null;
 
 // Wrapper around sql.js statement to provide a better-sqlite3-like API
 class StatementWrapper {
@@ -146,6 +151,68 @@ function _debouncedSave() {
   _saveTimer = setTimeout(_saveDb, 100);
 }
 
+// --- Database backup ---
+
+function backupDatabase() {
+  if (!fs.existsSync(DB_PATH)) return;
+
+  if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  }
+
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupPath = path.join(BACKUP_DIR, `missionreach-${timestamp}.db`);
+    fs.copyFileSync(DB_PATH, backupPath);
+    logger.info('database_backup_created', { path: backupPath });
+
+    // Prune old backups — keep only the most recent MAX_BACKUPS
+    const backups = fs.readdirSync(BACKUP_DIR)
+      .filter(f => f.startsWith('missionreach-') && f.endsWith('.db'))
+      .sort()
+      .reverse();
+
+    for (let i = MAX_BACKUPS; i < backups.length; i++) {
+      const oldPath = path.join(BACKUP_DIR, backups[i]);
+      fs.unlinkSync(oldPath);
+      logger.debug('old_backup_removed', { path: oldPath });
+    }
+  } catch (err) {
+    logger.error('database_backup_failed', { error: err.message });
+  }
+}
+
+function startPeriodicBackups() {
+  if (backupTimer) return;
+  backupDatabase(); // immediate backup on startup
+  backupTimer = setInterval(backupDatabase, BACKUP_INTERVAL_MS);
+  // Allow process to exit even if timer is pending
+  if (backupTimer.unref) backupTimer.unref();
+}
+
+// Flush pending writes and close — used for graceful shutdown
+function flushAndClose() {
+  if (_saveTimer) {
+    clearTimeout(_saveTimer);
+    _saveTimer = null;
+  }
+  if (db && db._db) {
+    try {
+      const data = db._db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(DB_PATH, buffer);
+      _registerCustomFunctions();
+      logger.info('database_flushed_on_shutdown');
+    } catch (err) {
+      logger.error('database_flush_failed', { error: err.message });
+    }
+  }
+  if (backupTimer) {
+    clearInterval(backupTimer);
+    backupTimer = null;
+  }
+}
+
 function _hasColumn(tableName, columnName) {
   try {
     db.prepare(`SELECT ${columnName} FROM ${tableName} LIMIT 1`).get();
@@ -256,6 +323,12 @@ async function initialize() {
     _saveDb();
   }
 
+  // --- Migrate: add token_version column to users if missing ---
+  if (!_hasColumn('users', 'token_version')) {
+    db._db.run('ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0');
+    _saveDb();
+  }
+
   // --- Performance indexes that depend on user_id migration ---
   db._db.run('CREATE INDEX IF NOT EXISTS idx_contacts_user_id ON contacts(user_id)');
   db._db.run('CREATE INDEX IF NOT EXISTS idx_contacts_user_last_name ON contacts(user_id, last_name)');
@@ -310,6 +383,9 @@ async function initialize() {
   // Ensure immediate flush after init
   _saveDb();
 
+  // Start periodic backups
+  startPeriodicBackups();
+
   return db;
 }
 
@@ -328,4 +404,4 @@ function initializeAsync() {
   return initPromise;
 }
 
-module.exports = { initialize: initializeAsync, getDb, normalizePhone };
+module.exports = { initialize: initializeAsync, getDb, normalizePhone, flushAndClose, backupDatabase };

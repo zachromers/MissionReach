@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db/database');
+const { validateOutreach, sanitizeOutreachFields } = require('../middleware/validate');
 
 // POST /api/contacts/:contactId/outreaches
 router.post('/contacts/:contactId/outreaches', (req, res) => {
@@ -10,8 +11,13 @@ router.post('/contacts/:contactId/outreaches', (req, res) => {
     const contact = db.prepare('SELECT id FROM contacts WHERE id = ? AND user_id = ?').get(req.params.contactId, userId);
     if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
-    const { mode, direction, subject, content, date, ai_generated, status } = req.body;
-    if (!mode) return res.status(400).json({ error: 'mode is required' });
+    const errors = validateOutreach(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ error: errors.join('; ') });
+    }
+
+    const sanitized = sanitizeOutreachFields(req.body);
+    const { mode, direction, subject, content, date, ai_generated, status } = sanitized;
 
     const result = db.prepare(
       'INSERT INTO outreaches (contact_id, mode, direction, subject, content, date, ai_generated, status, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
@@ -23,7 +29,9 @@ router.post('/contacts/:contactId/outreaches', (req, res) => {
     const outreach = db.prepare('SELECT * FROM outreaches WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(outreach);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -38,7 +46,9 @@ router.get('/contacts/:contactId/outreaches', (req, res) => {
     const outreaches = db.prepare('SELECT * FROM outreaches WHERE contact_id = ? ORDER BY date DESC').all(req.params.contactId);
     res.json(outreaches);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -50,14 +60,22 @@ router.put('/:id', (req, res) => {
     const existing = db.prepare('SELECT * FROM outreaches WHERE id = ? AND user_id = ?').get(req.params.id, userId);
     if (!existing) return res.status(404).json({ error: 'Outreach not found' });
 
+    // Validate provided fields (merge with existing for required field checks)
+    const merged = { mode: existing.mode, ...req.body };
+    const errors = validateOutreach(merged);
+    if (errors.length > 0) {
+      return res.status(400).json({ error: errors.join('; ') });
+    }
+
+    const sanitized = sanitizeOutreachFields(req.body);
     const fields = ['mode', 'direction', 'subject', 'content', 'date', 'ai_generated', 'status'];
     const updates = [];
     const params = [];
 
     for (const field of fields) {
-      if (req.body[field] !== undefined) {
+      if (sanitized[field] !== undefined) {
         updates.push(`${field} = ?`);
-        params.push(field === 'ai_generated' ? (req.body[field] ? 1 : 0) : req.body[field]);
+        params.push(field === 'ai_generated' ? (sanitized[field] ? 1 : 0) : sanitized[field]);
       }
     }
 
@@ -69,7 +87,9 @@ router.put('/:id', (req, res) => {
     const outreach = db.prepare('SELECT * FROM outreaches WHERE id = ?').get(req.params.id);
     res.json(outreach);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -84,7 +104,9 @@ router.delete('/:id', (req, res) => {
     db.prepare('DELETE FROM outreaches WHERE id = ? AND user_id = ?').run(req.params.id, userId);
     res.json({ message: 'Outreach deleted' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 

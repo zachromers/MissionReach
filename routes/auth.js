@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getDb } = require('../db/database');
 const { getJwtSecret, requireAuth } = require('../middleware/auth');
+const { logger } = require('../middleware/logger');
 
 // Input sanitization helpers
 function stripHtml(str) {
@@ -44,7 +45,13 @@ router.post('/login', (req, res) => {
     }
 
     const secret = getJwtSecret();
-    const token = jwt.sign({ userId: user.id }, secret, { expiresIn: TOKEN_EXPIRY, algorithm: 'HS256' });
+    const token = jwt.sign(
+      { userId: user.id, tokenVersion: user.token_version || 0 },
+      secret,
+      { expiresIn: TOKEN_EXPIRY, algorithm: 'HS256' }
+    );
+
+    logger.info('user_login', { userId: user.id, username: user.username, requestId: req.requestId });
 
     res.cookie('token', token, COOKIE_OPTIONS);
     res.json({
@@ -56,7 +63,9 @@ router.post('/login', (req, res) => {
       must_change_password: !!user.must_change_password,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -116,7 +125,13 @@ router.post('/register', (req, res) => {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
 
     const secret = getJwtSecret();
-    const token = jwt.sign({ userId: user.id }, secret, { expiresIn: TOKEN_EXPIRY, algorithm: 'HS256' });
+    const token = jwt.sign(
+      { userId: user.id, tokenVersion: user.token_version || 0 },
+      secret,
+      { expiresIn: TOKEN_EXPIRY, algorithm: 'HS256' }
+    );
+
+    logger.info('user_registered', { userId: user.id, username: user.username, requestId: req.requestId });
 
     res.cookie('token', token, COOKIE_OPTIONS);
     res.status(201).json({
@@ -128,7 +143,9 @@ router.post('/register', (req, res) => {
       must_change_password: false,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -152,7 +169,9 @@ router.get('/me', requireAuth, (req, res) => {
       must_change_password: !!user.must_change_password,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -176,11 +195,26 @@ router.put('/password', requireAuth, (req, res) => {
     }
 
     const hash = bcrypt.hashSync(new_password, 10);
-    db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hash, req.user.id);
+    // Increment token_version to invalidate all existing tokens
+    db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hash, req.user.id);
+
+    // Issue a new token with the updated token_version
+    const updatedUser = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    const secret = getJwtSecret();
+    const newToken = jwt.sign(
+      { userId: updatedUser.id, tokenVersion: updatedUser.token_version },
+      secret,
+      { expiresIn: TOKEN_EXPIRY, algorithm: 'HS256' }
+    );
+    res.cookie('token', newToken, COOKIE_OPTIONS);
+
+    logger.info('password_changed', { userId: req.user.id, requestId: req.requestId });
 
     res.json({ message: 'Password updated successfully' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 

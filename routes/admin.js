@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { getDb } = require('../db/database');
 const { requireAdmin } = require('../middleware/auth');
+const { logger } = require('../middleware/logger');
 
 // Input sanitization helpers
 function stripHtml(str) {
@@ -23,7 +24,9 @@ router.get('/users', (req, res) => {
     const users = db.prepare('SELECT id, username, display_name, email, role, created_at, updated_at FROM users ORDER BY id').all();
     res.json(users);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -74,9 +77,12 @@ router.post('/users', (req, res) => {
     ).run(username, hash, display_name || null, email, validRole);
 
     const user = db.prepare('SELECT id, username, display_name, email, role, created_at, updated_at FROM users WHERE id = ?').get(result.lastInsertRowid);
+    logger.info('admin_user_created', { adminId: req.user.id, createdUserId: user.id, username, requestId: req.requestId });
     res.status(201).json(user);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -137,8 +143,9 @@ router.put('/users/:id', (req, res) => {
       }
       updates.push('password_hash = ?');
       params.push(bcrypt.hashSync(password, 10));
-      // Force user to change password on next login
+      // Force user to change password on next login and invalidate existing tokens
       updates.push('must_change_password = 1');
+      updates.push('token_version = token_version + 1');
     }
     if (display_name !== undefined) {
       updates.push('display_name = ?');
@@ -162,9 +169,12 @@ router.put('/users/:id', (req, res) => {
     db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);
 
     const updated = db.prepare('SELECT id, username, display_name, email, role, created_at, updated_at FROM users WHERE id = ?').get(req.params.id);
+    logger.info('admin_user_updated', { adminId: req.user.id, targetUserId: Number(req.params.id), requestId: req.requestId });
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -197,9 +207,12 @@ router.delete('/users/:id', (req, res) => {
     db.prepare('DELETE FROM settings WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
+    logger.info('admin_user_deleted', { adminId: req.user.id, deletedUserId: userId, deletedUsername: user.username, requestId: req.requestId });
     res.json({ message: 'User and all associated data deleted' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 

@@ -26,10 +26,16 @@ function requireAuth(req, res, next) {
     const secret = getJwtSecret();
     const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] });
     const db = getDb();
-    const user = db.prepare('SELECT id, username, display_name, role FROM users WHERE id = ?').get(decoded.userId);
+    const user = db.prepare('SELECT id, username, display_name, role, token_version FROM users WHERE id = ?').get(decoded.userId);
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
+
+    // Check token_version — reject tokens issued before a password change
+    if (decoded.tokenVersion !== undefined && decoded.tokenVersion !== user.token_version) {
+      return res.status(401).json({ error: 'Token has been invalidated. Please log in again.' });
+    }
+
     req.user = user;
     next();
   } catch (err) {

@@ -41,7 +41,9 @@ router.post('/preview', upload.single('file'), (req, res) => {
       totalRows: rows.length,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -204,7 +206,9 @@ router.post('/execute', (req, res) => {
       duplicates: duplicateEntries,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -223,7 +227,9 @@ router.post('/force', (req, res) => {
 
     res.json({ imported: contacts.length });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 

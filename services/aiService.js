@@ -1,5 +1,37 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { getDb } = require('../db/database');
+const { logger } = require('../middleware/logger');
+
+/**
+ * Retry an async function with exponential backoff.
+ * Retries on 429 (rate limit) and 5xx (server errors).
+ * Does NOT retry on 4xx client errors (except 429).
+ */
+async function retryWithBackoff(fn, { maxRetries = 3, baseDelay = 1000, maxDelay = 15000 } = {}) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const status = err.status || err.statusCode;
+      const isRetryable = !status || status === 429 || status >= 500;
+
+      if (!isRetryable || attempt === maxRetries) {
+        throw err;
+      }
+
+      const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+      const jitter = delay * (0.5 + Math.random() * 0.5);
+      logger.warn('ai_request_retry', {
+        attempt: attempt + 1,
+        maxRetries,
+        status,
+        delay_ms: Math.round(jitter),
+        error: err.message,
+      });
+      await new Promise(resolve => setTimeout(resolve, jitter));
+    }
+  }
+}
 
 function getSettings(userId) {
   const db = getDb();
@@ -192,15 +224,15 @@ function preFilterContacts(userPrompt, excludeIds = [], userId) {
 
 async function processPrompt(userPrompt, excludeIds = [], userId) {
   const settings = getSettings(userId);
-  const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
-    throw new Error('Please configure your Anthropic API key in Settings.');
+    throw Object.assign(new Error('Please set the ANTHROPIC_API_KEY environment variable.'), { statusCode: 400 });
   }
 
   const { contacts, filterApplied } = preFilterContacts(userPrompt, excludeIds, userId);
   if (contacts.length === 0) {
-    throw new Error('No contacts found matching your query. Try a different prompt or add more contacts.');
+    throw Object.assign(new Error('No contacts found matching your query. Try a different prompt or add more contacts.'), { statusCode: 400 });
   }
 
   const contactData = JSON.stringify(contacts);
@@ -234,12 +266,14 @@ Guidelines:
   const modelKey = settings.claude_model || 'sonnet';
   const model = MODEL_MAP[modelKey] || MODEL_MAP.sonnet;
 
-  const response = await client.messages.create({
-    model,
-    max_tokens: 4096,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userPrompt }],
-  });
+  const response = await retryWithBackoff(() =>
+    client.messages.create({
+      model,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    })
+  );
 
   const responseText = response.content[0].text;
 
@@ -291,8 +325,7 @@ Guidelines:
 }
 
 async function generateWarmthScores({ forceAll = false, userId } = {}) {
-  const settings = getSettings(userId);
-  const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { updated: false };
 
   const db = getDb();
@@ -332,10 +365,11 @@ async function generateWarmthScores({ forceAll = false, userId } = {}) {
     }));
 
     try {
-      const response = await client.messages.create({
-        model: MODEL_MAP.haiku,
-        max_tokens: 4096,
-        system: `You score missionary contacts on how likely they are to donate today, 1-5 scale:
+      const response = await retryWithBackoff(() =>
+        client.messages.create({
+          model: MODEL_MAP.haiku,
+          max_tokens: 4096,
+          system: `You score missionary contacts on how likely they are to donate today, 1-5 scale:
 1 = Very unlikely (no relationship/history, never donated)
 2 = Unlikely (minimal engagement)
 3 = Moderate (some history, could go either way)
@@ -346,8 +380,9 @@ For each contact, also provide a one-sentence reason explaining why you gave tha
 You MUST return a score for EVERY contact provided. Do not skip any.
 
 Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reason": "<one sentence explanation>" }] }`,
-        messages: [{ role: 'user', content: `Score these contacts:\n${JSON.stringify(contactSummaries)}` }],
-      });
+          messages: [{ role: 'user', content: `Score these contacts:\n${JSON.stringify(contactSummaries)}` }],
+        })
+      );
 
       const text = response.content[0].text;
       let parsed;
@@ -367,7 +402,7 @@ Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reas
         }
       }
     } catch (err) {
-      console.error('Warmth score batch error:', err.message);
+      logger.error('warmth_score_batch_error', { error: err.message, batchStart: i, batchSize: batch.length });
     }
   }
 
@@ -375,8 +410,7 @@ Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reas
 }
 
 async function generateSingleWarmthScore(contactId, userId) {
-  const settings = getSettings(userId);
-  const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return;
 
   const db = getDb();
@@ -409,10 +443,11 @@ async function generateSingleWarmthScore(contactId, userId) {
       days_since_last_contact: c.days_since_last_contact,
     };
 
-    const response = await client.messages.create({
-      model: MODEL_MAP.haiku,
-      max_tokens: 256,
-      system: `You score missionary contacts on how likely they are to donate today, 1-5 scale:
+    const response = await retryWithBackoff(() =>
+      client.messages.create({
+        model: MODEL_MAP.haiku,
+        max_tokens: 256,
+        system: `You score missionary contacts on how likely they are to donate today, 1-5 scale:
 1 = Very unlikely (no relationship/history, never donated)
 2 = Unlikely (minimal engagement)
 3 = Moderate (some history, could go either way)
@@ -422,8 +457,9 @@ async function generateSingleWarmthScore(contactId, userId) {
 For each contact, also provide a one-sentence reason explaining why you gave that score.
 
 Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reason": "<one sentence explanation>" }] }`,
-      messages: [{ role: 'user', content: `Score this contact:\n${JSON.stringify(contactSummary)}` }],
-    });
+        messages: [{ role: 'user', content: `Score this contact:\n${JSON.stringify(contactSummary)}` }],
+      })
+    );
 
     const text = response.content[0].text;
     let parsed;
@@ -440,16 +476,16 @@ Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reas
       db.prepare('UPDATE contacts SET warmth_score = ?, warmth_score_reason = ?, warmth_score_updated_at = datetime(\'now\') WHERE id = ?').run(score, reason, contactId);
     }
   } catch (err) {
-    console.error('Single warmth score error:', err.message);
+    logger.error('single_warmth_score_error', { error: err.message, contactId });
   }
 }
 
 async function generateOutreachDraft(contactId, mode, userId) {
   const settings = getSettings(userId);
-  const apiKey = process.env.ANTHROPIC_API_KEY || settings.anthropic_api_key;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
-    throw new Error('Please configure your Anthropic API key in Settings.');
+    throw Object.assign(new Error('Please set the ANTHROPIC_API_KEY environment variable.'), { statusCode: 400 });
   }
 
   const db = getDb();
@@ -464,7 +500,7 @@ async function generateOutreachDraft(contactId, mode, userId) {
   `).get(contactId, userId);
 
   if (!contact) {
-    throw new Error('Contact not found.');
+    throw Object.assign(new Error('Contact not found.'), { statusCode: 404 });
   }
 
   const outreaches = db.prepare(
@@ -528,12 +564,14 @@ Return ONLY valid JSON in this exact format:
   const modelKey = settings.claude_model || 'sonnet';
   const model = MODEL_MAP[modelKey] || MODEL_MAP.sonnet;
 
-  const response = await client.messages.create({
-    model,
-    max_tokens: 1024,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: `Write a ${modeLabel} draft for ${contact.first_name} ${contact.last_name}.` }],
-  });
+  const response = await retryWithBackoff(() =>
+    client.messages.create({
+      model,
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: `Write a ${modeLabel} draft for ${contact.first_name} ${contact.last_name}.` }],
+    })
+  );
 
   const responseText = response.content[0].text;
 
@@ -545,7 +583,7 @@ Return ONLY valid JSON in this exact format:
     if (jsonMatch) {
       parsed = JSON.parse(jsonMatch[0]);
     } else {
-      throw new Error('Could not parse AI response.');
+      throw Object.assign(new Error('Could not parse AI response.'), { statusCode: 502 });
     }
   }
 

@@ -10,20 +10,16 @@ router.get('/', (req, res) => {
     const rows = db.prepare('SELECT * FROM settings WHERE user_id = ?').all(userId);
     const settings = {};
     for (const row of rows) {
-      if (row.key === 'anthropic_api_key' && row.value) {
-        // Mask API key — show only last 4 characters
-        settings[row.key] = row.value.length > 4
-          ? '*'.repeat(row.value.length - 4) + row.value.slice(-4)
-          : row.value;
-      } else {
-        settings[row.key] = row.value;
-      }
+      if (row.key === 'anthropic_api_key') continue; // API key is only read from env
+      settings[row.key] = row.value;
     }
     // Let the frontend know if the API key is provided via environment variable
     settings.api_key_from_env = !!process.env.ANTHROPIC_API_KEY;
     res.json(settings);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -34,7 +30,7 @@ router.put('/', (req, res) => {
     const userId = req.user.id;
     const upsert = db.prepare('INSERT INTO settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value');
 
-    const allowed = ['missionary_name', 'missionary_context', 'default_stale_days', 'anthropic_api_key', 'claude_model', 'available_tags'];
+    const allowed = ['missionary_name', 'missionary_context', 'default_stale_days', 'claude_model', 'available_tags'];
     const transaction = db.transaction((data) => {
       for (const [key, value] of Object.entries(data)) {
         if (allowed.includes(key)) {
@@ -46,7 +42,9 @@ router.put('/', (req, res) => {
     transaction(req.body);
     res.json({ message: 'Settings updated' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -59,7 +57,9 @@ router.get('/tags', (req, res) => {
     const tags = row ? JSON.parse(row.value) : [];
     res.json({ tags });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -84,7 +84,9 @@ router.put('/tags', (req, res) => {
     db.prepare("INSERT INTO settings (user_id, key, value) VALUES (?, 'available_tags', ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value").run(userId, JSON.stringify(sorted));
     res.json({ tags: sorted });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 

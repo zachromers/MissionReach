@@ -3,11 +3,12 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { initialize } = require('./db/database');
+const { initialize, flushAndClose, getDb } = require('./db/database');
 const { requireAuth } = require('./middleware/auth');
+const { logger, requestLogger } = require('./middleware/logger');
 
 const app = express();
-const PORT = 3004;
+const PORT = process.env.PORT || 3004;
 
 // Security headers
 app.use(helmet({
@@ -30,19 +31,62 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Rate limiting on AI endpoints (per-user via IP, more generous)
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // 30 AI requests per 15 minutes
+  message: { error: 'Too many AI requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// General API rate limiting (generous, catches abuse)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, // 300 requests per 15 minutes
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Middleware
-app.use(express.json());
+app.use(requestLogger);
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Health check endpoint (no auth required)
+app.get('/api/health', (req, res) => {
+  try {
+    const db = getDb();
+    const result = db.prepare('SELECT 1 as ok').get();
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      db: result && result.ok === 1 ? 'connected' : 'error',
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: 'Database unavailable',
+    });
+  }
+});
 
 // Auth routes (no auth required, but rate-limited)
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth', require('./routes/auth'));
 
-// Apply requireAuth to all other /api/* routes
+// Apply requireAuth and general rate limiting to all other /api/* routes
 app.use('/api', requireAuth);
+app.use('/api', apiLimiter);
+
+// AI routes get additional stricter rate limiting
+app.use('/api/ai', aiLimiter);
 
 // Protected routes
 app.use('/api/contacts', require('./routes/contacts'));
@@ -59,11 +103,34 @@ app.get('*', (req, res) => {
 });
 
 // Initialize database then start server
+let server;
 initialize().then(() => {
-  app.listen(PORT, () => {
-    console.log(`MissionReach running at http://localhost:${PORT}`);
+  server = app.listen(PORT, () => {
+    logger.info('server_started', { port: PORT, url: `http://localhost:${PORT}` });
   });
 }).catch(err => {
-  console.error('Failed to initialize database:', err);
+  logger.error('database_init_failed', { error: err.message });
   process.exit(1);
 });
+
+// Graceful shutdown handler
+function shutdown(signal) {
+  logger.info('shutdown_initiated', { signal });
+  flushAndClose();
+  if (server) {
+    server.close(() => {
+      logger.info('server_closed');
+      process.exit(0);
+    });
+    // Force exit after 5 seconds if server hasn't closed
+    setTimeout(() => {
+      logger.warn('forced_shutdown');
+      process.exit(1);
+    }, 5000);
+  } else {
+    process.exit(0);
+  }
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

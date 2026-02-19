@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 const { getDb } = require('../db/database');
 const { generateSingleWarmthScore } = require('../services/aiService');
+const { validateContact, sanitizeContactFields, validateDonation, sanitizeDonationFields, validateOutreach, sanitizeOutreachFields } = require('../middleware/validate');
+const { logger } = require('../middleware/logger');
 
 // Configure multer for contact photo uploads
 const photosDir = path.join(__dirname, '..', 'public', 'uploads', 'photos');
@@ -240,7 +242,9 @@ router.get('/export/csv', (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="contacts.csv"');
     res.send(csvRows.join('\n'));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -260,7 +264,9 @@ router.get('/', (req, res) => {
       totalPages: Math.ceil(total / limitNum),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -277,7 +283,9 @@ router.get('/carousel', (req, res) => {
     `).all(userId);
     res.json(contacts);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -352,7 +360,9 @@ router.get('/find-all-duplicates', (req, res) => {
 
     res.json({ pairs });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -369,7 +379,9 @@ router.get('/:id', (req, res) => {
 
     res.json(contact);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -431,7 +443,9 @@ router.post('/check-duplicates', (req, res) => {
     const results = Array.from(duplicates.values());
     res.json({ duplicates: results });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -440,11 +454,14 @@ router.post('/', (req, res) => {
   try {
     const db = getDb();
     const userId = req.user.id;
-    const { first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags } = req.body;
 
-    if (!first_name || !last_name) {
-      return res.status(400).json({ error: 'first_name and last_name are required' });
+    const errors = validateContact(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ error: errors.join('; ') });
     }
+
+    const sanitized = sanitizeContactFields(req.body);
+    const { first_name, last_name, email, phone, address_line1, address_line2, city, state, zip, country, organization, relationship, notes, tags } = sanitized;
 
     // Generate default avatar URL
     const bg = ['4f46e5','7c3aed','2563eb','0891b2','059669','d97706','dc2626','be185d'][Math.floor(Math.random() * 8)];
@@ -458,7 +475,9 @@ router.post('/', (req, res) => {
     const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(contact);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -470,14 +489,21 @@ router.put('/:id', (req, res) => {
     const existing = db.prepare('SELECT * FROM contacts WHERE id = ? AND user_id = ?').get(req.params.id, userId);
     if (!existing) return res.status(404).json({ error: 'Contact not found' });
 
+    const errors = validateContact(req.body, { isUpdate: true });
+    if (errors.length > 0) {
+      return res.status(400).json({ error: errors.join('; ') });
+    }
+
+    const sanitized = sanitizeContactFields(req.body);
+    // Replace req.body references with sanitized for field extraction
     const fields = ['first_name', 'last_name', 'email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'zip', 'country', 'organization', 'relationship', 'notes', 'tags', 'photo_url'];
     const updates = [];
     const params = [];
 
     for (const field of fields) {
-      if (req.body[field] !== undefined) {
+      if (sanitized[field] !== undefined) {
         updates.push(`${field} = ?`);
-        params.push(req.body[field]);
+        params.push(sanitized[field]);
       }
     }
 
@@ -492,7 +518,9 @@ router.put('/:id', (req, res) => {
     const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
     res.json(contact);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -510,7 +538,9 @@ router.delete('/:id', (req, res) => {
 
     res.json({ message: 'Contact deleted' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -527,7 +557,9 @@ router.get('/:id/donations', (req, res) => {
     const donations = db.prepare('SELECT * FROM donations WHERE contact_id = ? ORDER BY date DESC').all(req.params.id);
     res.json(donations);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -539,8 +571,13 @@ router.post('/:id/donations', (req, res) => {
     const contact = db.prepare('SELECT id FROM contacts WHERE id = ? AND user_id = ?').get(req.params.id, userId);
     if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
-    const { amount, date, method, recurring, notes } = req.body;
-    if (!amount || !date) return res.status(400).json({ error: 'amount and date are required' });
+    const errors = validateDonation(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ error: errors.join('; ') });
+    }
+
+    const sanitized = sanitizeDonationFields(req.body);
+    const { amount, date, method, recurring, notes } = sanitized;
 
     const result = db.prepare(
       'INSERT INTO donations (contact_id, amount, date, method, recurring, notes, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -551,7 +588,9 @@ router.post('/:id/donations', (req, res) => {
     generateSingleWarmthScore(req.params.id, userId).catch(() => {});
     res.status(201).json(donation);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -568,7 +607,9 @@ router.get('/:id/outreaches', (req, res) => {
     const outreaches = db.prepare('SELECT * FROM outreaches WHERE contact_id = ? ORDER BY date DESC').all(req.params.id);
     res.json(outreaches);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -580,8 +621,13 @@ router.post('/:id/outreaches', (req, res) => {
     const contact = db.prepare('SELECT id FROM contacts WHERE id = ? AND user_id = ?').get(req.params.id, userId);
     if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
-    const { mode, direction, subject, content, date, ai_generated, status } = req.body;
-    if (!mode) return res.status(400).json({ error: 'mode is required' });
+    const errors = validateOutreach(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ error: errors.join('; ') });
+    }
+
+    const sanitized = sanitizeOutreachFields(req.body);
+    const { mode, direction, subject, content, date, ai_generated, status } = sanitized;
 
     const result = db.prepare(
       'INSERT INTO outreaches (contact_id, mode, direction, subject, content, date, ai_generated, status, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
@@ -595,7 +641,9 @@ router.post('/:id/outreaches', (req, res) => {
     generateSingleWarmthScore(req.params.id, userId).catch(() => {});
     res.status(201).json(outreach);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -622,7 +670,9 @@ router.post('/:id/photo', photoUpload.single('photo'), (req, res) => {
     const updated = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 

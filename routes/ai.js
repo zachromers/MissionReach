@@ -12,7 +12,9 @@ router.post('/prompt', async (req, res) => {
     const result = await processPrompt(prompt, excludeIds || [], req.user.id);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -59,7 +61,9 @@ router.get('/stats', (req, res) => {
       staleDays,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -69,7 +73,9 @@ router.post('/warmth-scores', async (req, res) => {
     const result = await generateWarmthScores({ userId: req.user.id });
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -79,7 +85,9 @@ router.post('/warmth-scores/recalculate-all', async (req, res) => {
     const result = await generateWarmthScores({ forceAll: true, userId: req.user.id });
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 
@@ -90,7 +98,9 @@ router.post('/generate-outreach/:contactId', async (req, res) => {
     const result = await generateOutreachDraft(parseInt(req.params.contactId), mode || 'email', req.user.id);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
   }
 });
 

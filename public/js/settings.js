@@ -204,7 +204,7 @@ document.getElementById('btn-recalculate-warmth').addEventListener('click', asyn
       statusEl.textContent = `Done! Updated warmth scores for ${result.count} contact${result.count === 1 ? '' : 's'}.`;
       statusEl.className = 'success';
     } else {
-      statusEl.textContent = 'No contacts found to update. Make sure you have an API key configured.';
+      statusEl.textContent = 'No contacts found to update. Make sure the ANTHROPIC_API_KEY environment variable is set.';
       statusEl.className = 'error';
     }
   } catch (err) {
