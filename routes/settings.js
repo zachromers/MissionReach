@@ -30,7 +30,7 @@ router.put('/', (req, res) => {
     const userId = req.user.id;
     const upsert = db.prepare('INSERT INTO settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value');
 
-    const allowed = ['missionary_name', 'missionary_context', 'default_stale_days', 'claude_model', 'available_tags'];
+    const allowed = ['missionary_name', 'missionary_context', 'default_stale_days', 'available_tags'];
     const transaction = db.transaction((data) => {
       for (const [key, value] of Object.entries(data)) {
         if (allowed.includes(key)) {
@@ -41,6 +41,19 @@ router.put('/', (req, res) => {
 
     transaction(req.body);
     res.json({ message: 'Settings updated' });
+  } catch (err) {
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
+  }
+});
+
+// GET /api/settings/model — public read of global Claude model setting
+router.get('/model', (req, res) => {
+  try {
+    const db = getDb();
+    const row = db.prepare("SELECT value FROM settings WHERE user_id = 0 AND key = 'claude_model'").get();
+    res.json({ claude_model: row ? row.value : 'sonnet' });
   } catch (err) {
     console.error(err);
     const status = err.statusCode || 500;

@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (target === 'contacts') loadContacts();
       if (target === 'search') initSearch();
       if (target === 'settings') loadSettings();
-      if (target === 'admin') { loadAdminUsers(); loadRegistrationSetting(); }
+      if (target === 'admin') { loadAdminUsers(); loadRegistrationSetting(); loadModelSetting(); }
     });
   });
 

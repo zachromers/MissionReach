@@ -24,6 +24,33 @@ regCheckbox.addEventListener('change', async () => {
   }
 });
 
+// --- Model setting ---
+const modelSelect = document.getElementById('admin-model-select');
+async function loadModelSetting() {
+  try {
+    const data = await api('api/admin/settings/model');
+    modelSelect.value = data.claude_model || 'sonnet';
+  } catch (err) {
+    console.error('Error loading model setting:', err);
+  }
+}
+
+modelSelect.addEventListener('change', async () => {
+  const previous = modelSelect.dataset.previous || 'sonnet';
+  modelSelect.dataset.previous = modelSelect.value;
+  try {
+    await api('api/admin/settings/model', {
+      method: 'PUT',
+      body: { claude_model: modelSelect.value },
+    });
+  } catch (err) {
+    // Revert on failure
+    modelSelect.value = previous;
+    modelSelect.dataset.previous = previous;
+    alert('Error updating model setting: ' + err.message);
+  }
+});
+
 async function loadAdminUsers() {
   try {
     const users = await api('api/admin/users');

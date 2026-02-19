@@ -29,8 +29,8 @@ async function refreshWarmthScores() {
 
 async function loadModelIndicator() {
   try {
-    const settings = await api('api/settings');
-    const key = settings.claude_model || 'sonnet';
+    const data = await api('api/settings/model');
+    const key = data.claude_model || 'sonnet';
     document.getElementById('model-indicator').textContent = 'Using ' + (MODEL_LABELS[key] || MODEL_LABELS.sonnet);
   } catch {}
 }

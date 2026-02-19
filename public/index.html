@@ -369,15 +369,6 @@
               <textarea id="setting-context" rows="4" placeholder="Describe your mission, ministry, or organization in a few sentences. This helps the AI write more personalized messages."></textarea>
             </div>
             <div class="form-group">
-              <label for="setting-model">AI Model</label>
-              <select id="setting-model">
-                <option value="haiku">Claude Haiku (fastest, lowest cost)</option>
-                <option value="sonnet" selected>Claude Sonnet (balanced)</option>
-                <option value="opus">Claude Opus (most capable)</option>
-              </select>
-              <small>Choose which Claude model generates your recommendations.</small>
-            </div>
-            <div class="form-group">
               <label for="setting-stale-days">Default Stale Contact Threshold (days)</label>
               <input type="number" id="setting-stale-days" value="90" min="1">
               <small>Contacts with no outreach in this many days will be flagged.</small>
@@ -442,6 +433,16 @@
               Allow self-registration
             </label>
             <span style="color:var(--gray-400);font-size:13px;">When enabled, anyone can create an account from the login page.</span>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px;background:var(--gray-50);border-radius:8px;">
+            <label for="admin-model-select" style="font-weight:600;font-size:14px;white-space:nowrap;">AI Model</label>
+            <select id="admin-model-select" style="padding:6px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:14px;">
+              <option value="haiku">Claude Haiku (fastest, lowest cost)</option>
+              <option value="sonnet">Claude Sonnet (balanced)</option>
+              <option value="opus">Claude Opus (most capable)</option>
+            </select>
+            <span style="color:var(--gray-400);font-size:13px;">Choose which Claude model generates recommendations for all users.</span>
           </div>
 
           <button id="btn-add-user" class="btn btn-primary" style="margin-bottom: 16px;">Add New User</button>

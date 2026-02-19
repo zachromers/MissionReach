@@ -43,6 +43,36 @@ router.put('/settings/registration', (req, res) => {
   }
 });
 
+// GET /api/admin/settings/model — check global Claude model setting
+router.get('/settings/model', (req, res) => {
+  try {
+    const db = getDb();
+    const row = db.prepare("SELECT value FROM settings WHERE user_id = 0 AND key = 'claude_model'").get();
+    res.json({ claude_model: row ? row.value : 'sonnet' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /api/admin/settings/model — set global Claude model
+router.put('/settings/model', (req, res) => {
+  try {
+    const valid = ['haiku', 'sonnet', 'opus'];
+    const model = req.body.claude_model;
+    if (!valid.includes(model)) {
+      return res.status(400).json({ error: 'Invalid model. Must be one of: ' + valid.join(', ') });
+    }
+    const db = getDb();
+    db.prepare("INSERT INTO settings (user_id, key, value) VALUES (0, 'claude_model', ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value").run(model);
+    logger.info('model_setting_changed', { adminId: req.user.id, claude_model: model, requestId: req.requestId });
+    res.json({ claude_model: model });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/admin/users — list all users
 router.get('/users', (req, res) => {
   try {

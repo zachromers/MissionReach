@@ -43,6 +43,12 @@ function getSettings(userId) {
   return settings;
 }
 
+function getGlobalModel() {
+  const db = getDb();
+  const row = db.prepare("SELECT value FROM settings WHERE user_id = 0 AND key = 'claude_model'").get();
+  return row ? row.value : 'sonnet';
+}
+
 const MAX_CONTACTS_TO_SEND = 50;
 
 const MODEL_MAP = {
@@ -269,7 +275,7 @@ Guidelines:
 - Focus on relationship context and outreach history`;
 
   const client = new Anthropic({ apiKey });
-  const modelKey = settings.claude_model || 'sonnet';
+  const modelKey = getGlobalModel();
   const model = MODEL_MAP[modelKey] || MODEL_MAP.sonnet;
 
   const response = await retryWithBackoff(() =>
@@ -567,7 +573,7 @@ Return ONLY valid JSON in this exact format:
 }`;
 
   const client = new Anthropic({ apiKey });
-  const modelKey = settings.claude_model || 'sonnet';
+  const modelKey = getGlobalModel();
   const model = MODEL_MAP[modelKey] || MODEL_MAP.sonnet;
 
   const response = await retryWithBackoff(() =>
