@@ -16,11 +16,10 @@ function validateUsername(u) {
 }
 
 const TOKEN_EXPIRY = '7d';
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: 'lax',
-  secure: IS_PRODUCTION,
+  secure: process.env.NODE_ENV !== 'development',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
@@ -35,12 +34,11 @@ router.post('/login', (req, res) => {
 
     const db = getDb();
     const user = db.prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(username);
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid username or password' });
-    }
 
-    const valid = bcrypt.compareSync(password, user.password_hash);
-    if (!valid) {
+    // Always run bcrypt compare to prevent timing-based user enumeration
+    const DUMMY_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+    const valid = bcrypt.compareSync(password, user ? user.password_hash : DUMMY_HASH);
+    if (!user || !valid) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 

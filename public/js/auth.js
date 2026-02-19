@@ -89,7 +89,7 @@ async function handleLogin(e) {
   try {
     const res = await fetch('api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
       body: JSON.stringify({ username, password }),
     });
     const data = await res.json();
@@ -150,7 +150,7 @@ async function handleForcePasswordChange(e) {
   try {
     const res = await fetch('api/auth/password', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
       body: JSON.stringify({ current_password: currentPwd, new_password: newPwd }),
     });
     const data = await res.json();
@@ -213,7 +213,7 @@ async function handleRegister(e) {
   try {
     const res = await fetch('api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
       body: JSON.stringify({ username, email, display_name, password, confirm_password }),
     });
     const data = await res.json();
@@ -247,7 +247,7 @@ async function handleRegister(e) {
 
 async function handleLogout() {
   try {
-    await fetch('api/auth/logout', { method: 'POST' });
+    await fetch('api/auth/logout', { method: 'POST', headers: { 'X-Requested-With': 'fetch' } });
   } catch {}
   currentUser = null;
   showLogin();

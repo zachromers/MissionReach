@@ -336,6 +336,7 @@ async function initialize() {
   db._db.run('CREATE INDEX IF NOT EXISTS idx_contacts_user_warmth ON contacts(user_id, warmth_score)');
   db._db.run('CREATE INDEX IF NOT EXISTS idx_donations_user_id ON donations(user_id)');
   db._db.run('CREATE INDEX IF NOT EXISTS idx_outreaches_user_id ON outreaches(user_id)');
+  db._db.run('CREATE INDEX IF NOT EXISTS idx_ai_prompts_user_id ON ai_prompts(user_id)');
 
   // --- Bootstrap admin user ---
   const adminUser = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();

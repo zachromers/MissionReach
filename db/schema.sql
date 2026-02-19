@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS outreaches (
 
 CREATE TABLE IF NOT EXISTS ai_prompts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   prompt_text TEXT NOT NULL,
   response_summary TEXT,
   contacts_returned TEXT,
@@ -80,3 +81,4 @@ CREATE INDEX IF NOT EXISTS idx_donations_contact_id ON donations(contact_id);
 CREATE INDEX IF NOT EXISTS idx_donations_date ON donations(date);
 CREATE INDEX IF NOT EXISTS idx_outreaches_contact_id ON outreaches(contact_id);
 CREATE INDEX IF NOT EXISTS idx_outreaches_date ON outreaches(date);
+CREATE INDEX IF NOT EXISTS idx_ai_prompts_user_id ON ai_prompts(user_id);

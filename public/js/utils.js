@@ -2,7 +2,7 @@
 
 async function api(url, options = {}) {
   const defaults = {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
   };
   if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
     options.body = JSON.stringify(options.body);
