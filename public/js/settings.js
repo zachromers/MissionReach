@@ -20,12 +20,18 @@ async function loadTagManagement() {
   try {
     const availableTags = await fetchAvailableTags(true);
     // Fetch all contacts to see which tags are in use
-    const contacts = await api('api/contacts');
     const usedTags = new Set();
-    for (const c of contacts) {
-      if (c.tags) {
-        c.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => usedTags.add(t));
+    let page = 1;
+    let totalPages = 1;
+    while (page <= totalPages) {
+      const res = await api(`api/contacts?limit=200&page=${page}`);
+      for (const c of res.contacts) {
+        if (c.tags) {
+          c.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => usedTags.add(t));
+        }
       }
+      totalPages = res.totalPages;
+      page++;
     }
 
     listEl.innerHTML = '';
