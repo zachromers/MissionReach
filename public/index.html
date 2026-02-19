@@ -340,11 +340,19 @@
           <div id="import-step-duplicates" class="hidden">
             <h2>Potential Duplicates Found</h2>
             <p id="import-dup-summary"></p>
-            <div id="import-dup-list"></div>
-            <div style="margin-top:16px;display:flex;gap:8px;">
-              <button id="btn-import-selected-dups" class="btn btn-primary">Import Selected</button>
-              <button id="btn-skip-all-dups" class="btn">Skip All &amp; Finish</button>
+            <div class="dup-toolbar">
+              <div class="dup-toolbar-left">
+                <label style="font-size:13px;cursor:pointer;">
+                  <input type="checkbox" id="import-dup-select-all" checked> Select all
+                </label>
+              </div>
+              <div class="dup-toolbar-right">
+                <button id="btn-import-selected-dups" class="btn btn-primary btn-sm">Import Selected</button>
+                <button id="btn-skip-all-dups" class="btn btn-sm">Skip All &amp; Finish</button>
+              </div>
             </div>
+            <div id="import-dup-list"></div>
+            <div id="import-dup-pagination"></div>
           </div>
 
           <div id="import-step3" class="hidden">

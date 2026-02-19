@@ -1577,6 +1577,160 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
+/* Duplicate Import Toolbar */
+.dup-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.dup-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dup-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Per-card action buttons */
+.dup-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.dup-card-actions .btn-sm {
+  padding: 3px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.btn-sm {
+  padding: 5px 12px;
+  font-size: 13px;
+}
+
+.btn-import-one {
+  background: var(--blue-600);
+  color: var(--white);
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.btn-import-one:hover {
+  background: var(--blue-700);
+}
+
+.btn-import-one:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-skip-one {
+  background: var(--white);
+  color: var(--gray-600);
+  border: 1px solid var(--gray-300);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn-skip-one:hover {
+  background: var(--gray-100);
+  border-color: var(--gray-400);
+}
+
+.btn-skip-one:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Resolved card states */
+.duplicate-match-card.dup-resolved {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.dup-resolved-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.dup-resolved-badge.imported {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.dup-resolved-badge.skipped {
+  background: var(--gray-100);
+  color: var(--gray-500);
+}
+
+/* Pagination */
+.dup-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin-top: 16px;
+  padding: 12px 0;
+}
+
+.dup-pagination button {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--gray-700);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dup-pagination button:hover:not(:disabled) {
+  background: var(--gray-100);
+  border-color: var(--gray-400);
+}
+
+.dup-pagination button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dup-pagination button.active {
+  background: var(--blue-600);
+  color: var(--white);
+  border-color: var(--blue-600);
+}
+
+.dup-pagination .dup-page-info {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin: 0 8px;
+}
+
 /* Tag Picker */
 .tag-picker {
   display: flex;
