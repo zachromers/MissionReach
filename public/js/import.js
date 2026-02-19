@@ -511,6 +511,22 @@ document.getElementById('btn-import-back').addEventListener('click', () => {
   document.querySelector('.import-section').classList.remove('wide');
 });
 
+// Import another file
+document.getElementById('btn-import-another').addEventListener('click', () => {
+  document.getElementById('import-step3').classList.add('hidden');
+  document.getElementById('import-step-duplicates').classList.add('hidden');
+  document.getElementById('import-step1').classList.remove('hidden');
+  document.querySelector('.import-section').classList.remove('wide');
+  dropZone.querySelector('p').textContent = 'Drag & drop a file here, or click to select';
+  uploadBtn.disabled = true;
+  fileInput.value = '';
+  importState.lastImportResult = null;
+  dupResolved = [];
+  dupChecked = [];
+  dupExtraImported = 0;
+  dupCurrentPage = 1;
+});
+
 // Go to contacts
 document.getElementById('btn-goto-contacts').addEventListener('click', () => {
   document.querySelector('.nav-tab[data-tab="contacts"]').click();
