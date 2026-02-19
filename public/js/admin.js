@@ -16,8 +16,8 @@ async function loadAdminUsers() {
         <td>${formatDate(user.created_at)}</td>
         <td>
           <div style="display:flex;gap:6px;">
-            <button class="btn btn-sm" onclick="editUser(${user.id})">Edit</button>
-            ${user.id !== currentUser.id ? `<button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id}, '${escapeHtml(user.username)}')">Delete</button>` : ''}
+            <button class="btn btn-sm" data-edit-user="${user.id}">Edit</button>
+            ${user.id !== currentUser.id ? `<button class="btn btn-sm btn-danger" data-delete-user="${user.id}" data-username="${escapeHtml(user.username)}">Delete</button>` : ''}
           </div>
         </td>
       `;
@@ -80,6 +80,19 @@ async function deleteUser(userId, username) {
     alert('Error deleting user: ' + err.message);
   }
 }
+
+// Event delegation for edit/delete buttons (inline onclick blocked by CSP)
+document.getElementById('admin-users-tbody').addEventListener('click', (e) => {
+  const editBtn = e.target.closest('[data-edit-user]');
+  if (editBtn) {
+    editUser(Number(editBtn.dataset.editUser));
+    return;
+  }
+  const deleteBtn = e.target.closest('[data-delete-user]');
+  if (deleteBtn) {
+    deleteUser(Number(deleteBtn.dataset.deleteUser), deleteBtn.dataset.username);
+  }
+});
 
 // Event listeners
 document.getElementById('btn-add-user').addEventListener('click', () => {

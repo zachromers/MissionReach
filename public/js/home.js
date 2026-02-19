@@ -375,13 +375,18 @@ async function generateDraftForContact(contactId, mode, btnEl, cardEl) {
           ${subjectLine}
           <span class="draft-actions">
             ${emailBtn}
-            <button class="copy-btn" onclick="copyToClipboard(this.closest('.draft-content').querySelector('.draft-body').textContent, this)">Copy</button>
+            <button class="copy-btn copy-draft-btn">Copy</button>
           </span>
         </div>
         <div class="draft-body">${escapeHtml(result.content || '')}</div>
       </div>
     `;
     container.appendChild(details);
+
+    details.querySelector('.copy-draft-btn').addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      copyToClipboard(btn.closest('.draft-content').querySelector('.draft-body').textContent, btn);
+    });
 
     btnEl.textContent = originalText;
     btnEl.disabled = false;

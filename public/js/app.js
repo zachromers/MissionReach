@@ -47,6 +47,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     initHome();
   });
 
+  // "Change Password" banner button — navigate to settings and focus password field
+  document.getElementById('btn-change-password-banner').addEventListener('click', () => {
+    document.querySelector('[data-tab="settings"]').click();
+    document.getElementById('current-password').focus();
+  });
+
   // Initialize home page
   initHome();
 });
