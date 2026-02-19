@@ -2,6 +2,77 @@
 
 let currentUser = null;
 
+// --- Idle Timeout Manager ---
+const IdleTimeout = (() => {
+  const IDLE_LIMIT_MS = 60 * 60 * 1000;   // 60 minutes
+  const WARNING_SECONDS = 60;              // 60-second countdown
+  const WARNING_AT_MS = IDLE_LIMIT_MS - WARNING_SECONDS * 1000; // show warning at 59 min
+
+  let idleTimer = null;
+  let countdownTimer = null;
+  let secondsLeft = WARNING_SECONDS;
+  let running = false;
+
+  const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'pointerdown'];
+
+  function resetIdleTimer() {
+    if (!running) return;
+    // If the warning modal is showing, ignore activity — user must click the button
+    if (!document.getElementById('idle-timeout-modal').classList.contains('hidden')) return;
+
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(showWarning, WARNING_AT_MS);
+  }
+
+  function showWarning() {
+    secondsLeft = WARNING_SECONDS;
+    const modal = document.getElementById('idle-timeout-modal');
+    const display = document.getElementById('idle-timeout-seconds');
+    modal.classList.remove('hidden');
+    display.textContent = secondsLeft;
+
+    countdownTimer = setInterval(() => {
+      secondsLeft--;
+      display.textContent = secondsLeft;
+      if (secondsLeft <= 0) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+        modal.classList.add('hidden');
+        handleLogout();
+      }
+    }, 1000);
+  }
+
+  function dismissWarning() {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+    document.getElementById('idle-timeout-modal').classList.add('hidden');
+    // Restart the idle timer from scratch
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(showWarning, WARNING_AT_MS);
+  }
+
+  function start() {
+    if (running) return;
+    running = true;
+    ACTIVITY_EVENTS.forEach(evt => document.addEventListener(evt, resetIdleTimer, { passive: true }));
+    idleTimer = setTimeout(showWarning, WARNING_AT_MS);
+  }
+
+  function stop() {
+    running = false;
+    clearTimeout(idleTimer);
+    clearInterval(countdownTimer);
+    idleTimer = null;
+    countdownTimer = null;
+    ACTIVITY_EVENTS.forEach(evt => document.removeEventListener(evt, resetIdleTimer));
+    const modal = document.getElementById('idle-timeout-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  return { start, stop, dismissWarning };
+})();
+
 async function checkAuth() {
   try {
     const res = await fetch('api/auth/me');
@@ -23,6 +94,7 @@ async function checkAuth() {
 }
 
 function showLogin() {
+  IdleTimeout.stop();
   document.getElementById('login-page').classList.remove('hidden');
   document.getElementById('register-page').classList.add('hidden');
   document.getElementById('app-shell').classList.add('hidden');
@@ -62,6 +134,8 @@ function showApp() {
   document.getElementById('register-page').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
   document.getElementById('force-password-page').classList.add('hidden');
+
+  IdleTimeout.start();
 
   // Update user display in nav
   const userDisplay = document.getElementById('nav-user-display');
@@ -258,6 +332,7 @@ async function handleRegister(e) {
 }
 
 async function handleLogout() {
+  IdleTimeout.stop();
   try {
     await fetch('api/auth/logout', { method: 'POST', headers: { 'X-Requested-With': 'fetch' } });
   } catch {}
@@ -354,6 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-logout').addEventListener('click', handleLogout);
   document.getElementById('link-show-register').addEventListener('click', (e) => { e.preventDefault(); showRegister(); });
   document.getElementById('link-show-login').addEventListener('click', (e) => { e.preventDefault(); showLogin(); });
+  document.getElementById('btn-stay-logged-in').addEventListener('click', () => IdleTimeout.dismissWarning());
 
   // Wire up real-time validation on registration fields
   document.getElementById('register-display-name').addEventListener('input', validateDisplayName);
