@@ -163,19 +163,15 @@ document.getElementById('btn-import-execute').addEventListener('click', async ()
       },
     });
 
-    document.getElementById('import-step2').classList.add('hidden');
-    document.getElementById('import-step3').classList.remove('hidden');
-    document.querySelector('.import-section').classList.remove('wide');
+    importState.lastImportResult = data;
 
-    let html = `<p style="margin-bottom:12px;">Successfully imported <strong>${data.imported}</strong> contacts. <strong>${data.skipped}</strong> rows skipped.</p>`;
-    if (data.errors && data.errors.length > 0) {
-      html += '<ul style="font-size:13px;color:var(--gray-600);">';
-      for (const err of data.errors) {
-        html += `<li>${escapeHtml(err)}</li>`;
-      }
-      html += '</ul>';
+    if (data.duplicates && data.duplicates.length > 0) {
+      // Show duplicate review step
+      showDuplicateReview(data);
+    } else {
+      // No duplicates — go straight to results
+      showImportResults(data.imported, data.skipped, data.errors);
     }
-    document.getElementById('import-results').innerHTML = html;
   } catch (err) {
     alert('Error: ' + err.message);
   } finally {
@@ -183,6 +179,126 @@ document.getElementById('btn-import-execute').addEventListener('click', async ()
     btn.textContent = 'Import Contacts';
   }
 });
+
+const REASON_LABELS = { name: 'Name', email: 'Email', phone: 'Phone', address: 'Address' };
+
+function showDuplicateReview(data) {
+  document.getElementById('import-step2').classList.add('hidden');
+  document.getElementById('import-step-duplicates').classList.remove('hidden');
+
+  const dupCount = data.duplicates.length;
+  document.getElementById('import-dup-summary').innerHTML =
+    `<strong>${data.imported}</strong> contact${data.imported !== 1 ? 's' : ''} imported successfully. ` +
+    `<strong>${dupCount}</strong> potential duplicate${dupCount !== 1 ? 's' : ''} found and held back for your review.`;
+
+  let html = `<div style="margin:8px 0 12px;">
+    <label style="font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="import-dup-select-all" checked> Select all duplicates for import
+    </label>
+  </div>`;
+
+  data.duplicates.forEach((entry, idx) => {
+    const c = entry.contact;
+    const name = [c.first_name, c.last_name].filter(Boolean).join(' ');
+
+    html += `<div class="duplicate-match-card" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <input type="checkbox" class="import-dup-check" data-idx="${idx}" checked>
+        <strong>${escapeHtml(name)}</strong>
+        ${c.email ? `<span style="color:var(--gray-500);font-size:13px;">${escapeHtml(c.email)}</span>` : ''}
+        ${c.phone ? `<span style="color:var(--gray-500);font-size:13px;">${escapeHtml(c.phone)}</span>` : ''}
+      </div>
+      <div style="font-size:13px;color:var(--gray-500);margin-bottom:6px;">Matches existing contact${entry.matches.length > 1 ? 's' : ''}:</div>`;
+
+    for (const match of entry.matches) {
+      const mc = match.contact;
+      const reasons = match.reasons.map(r => REASON_LABELS[r] || r);
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--gray-50);border-radius:6px;margin-bottom:4px;">
+        <span>${escapeHtml(mc.first_name)} ${escapeHtml(mc.last_name)}</span>
+        ${mc.email ? `<span style="font-size:12px;color:var(--gray-400);">${escapeHtml(mc.email)}</span>` : ''}
+        <span class="duplicate-match-reasons">
+          ${reasons.map(r => `<span class="duplicate-reason-pill">${r} match</span>`).join('')}
+        </span>
+      </div>`;
+    }
+
+    html += `</div>`;
+  });
+
+  document.getElementById('import-dup-list').innerHTML = html;
+
+  // Select-all checkbox
+  const selectAll = document.getElementById('import-dup-select-all');
+  selectAll.addEventListener('change', () => {
+    document.querySelectorAll('.import-dup-check').forEach(cb => {
+      cb.checked = selectAll.checked;
+    });
+  });
+
+  // Individual checkboxes update select-all state
+  document.getElementById('import-dup-list').addEventListener('change', (e) => {
+    if (e.target.classList.contains('import-dup-check')) {
+      const all = document.querySelectorAll('.import-dup-check');
+      const checked = document.querySelectorAll('.import-dup-check:checked');
+      selectAll.checked = checked.length === all.length;
+      selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+    }
+  });
+}
+
+// Import selected duplicates
+document.getElementById('btn-import-selected-dups').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-import-selected-dups');
+  btn.disabled = true;
+  btn.textContent = 'Importing...';
+
+  try {
+    const data = importState.lastImportResult;
+    const selected = [];
+    document.querySelectorAll('.import-dup-check:checked').forEach(cb => {
+      selected.push(data.duplicates[Number(cb.dataset.idx)].contact);
+    });
+
+    let extraImported = 0;
+    if (selected.length > 0) {
+      const result = await api('api/import/force', {
+        method: 'POST',
+        body: { contacts: selected },
+      });
+      extraImported = result.imported;
+    }
+
+    showImportResults(data.imported + extraImported, data.skipped, data.errors);
+  } catch (err) {
+    alert('Error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Import Selected';
+  }
+});
+
+// Skip all duplicates
+document.getElementById('btn-skip-all-dups').addEventListener('click', () => {
+  const data = importState.lastImportResult;
+  showImportResults(data.imported, data.skipped + data.duplicates.length, data.errors);
+});
+
+function showImportResults(imported, skipped, errors) {
+  document.getElementById('import-step2').classList.add('hidden');
+  document.getElementById('import-step-duplicates').classList.add('hidden');
+  document.getElementById('import-step3').classList.remove('hidden');
+  document.querySelector('.import-section').classList.remove('wide');
+
+  let html = `<p style="margin-bottom:12px;">Successfully imported <strong>${imported}</strong> contacts. <strong>${skipped}</strong> rows skipped.</p>`;
+  if (errors && errors.length > 0) {
+    html += '<ul style="font-size:13px;color:var(--gray-600);">';
+    for (const err of errors) {
+      html += `<li>${escapeHtml(err)}</li>`;
+    }
+    html += '</ul>';
+  }
+  document.getElementById('import-results').innerHTML = html;
+}
 
 // Back button
 document.getElementById('btn-import-back').addEventListener('click', () => {
@@ -196,11 +312,13 @@ document.getElementById('btn-goto-contacts').addEventListener('click', () => {
   document.querySelector('.nav-tab[data-tab="contacts"]').click();
   // Reset import UI
   document.getElementById('import-step3').classList.add('hidden');
+  document.getElementById('import-step-duplicates').classList.add('hidden');
   document.getElementById('import-step1').classList.remove('hidden');
   document.querySelector('.import-section').classList.remove('wide');
   dropZone.querySelector('p').textContent = 'Drag & drop a file here, or click to select';
   uploadBtn.disabled = true;
   fileInput.value = '';
+  importState.lastImportResult = null;
 });
 
 // --- Client-side parsing for live preview ---

@@ -197,6 +197,17 @@ body {
   margin-top: 4px;
 }
 
+.form-group .field-error {
+  color: var(--red-500);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.form-group input.input-invalid {
+  border-color: var(--red-500);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
 input[type="text"],
 input[type="email"],
 input[type="number"],

@@ -254,6 +254,87 @@ async function handleLogout() {
 }
 
 // Set up login form and logout button listeners
+// --- Real-time registration field validation ---
+
+function setFieldError(inputId, errorId, message) {
+  const input = document.getElementById(inputId);
+  const error = document.getElementById(errorId);
+  if (message) {
+    input.classList.add('input-invalid');
+    error.textContent = message;
+    error.classList.remove('hidden');
+  } else {
+    input.classList.remove('input-invalid');
+    error.textContent = '';
+    error.classList.add('hidden');
+  }
+}
+
+function validateDisplayName() {
+  const val = document.getElementById('register-display-name').value.trim();
+  if (!val) { setFieldError('register-display-name', 'error-display-name', ''); return; }
+  if (val.length > 128) {
+    setFieldError('register-display-name', 'error-display-name', 'Max 128 characters.');
+  } else {
+    setFieldError('register-display-name', 'error-display-name', '');
+  }
+}
+
+function validateEmail() {
+  const val = document.getElementById('register-email').value.trim();
+  if (!val) { setFieldError('register-email', 'error-email', ''); return; }
+  if (val.length > 255) {
+    setFieldError('register-email', 'error-email', 'Max 255 characters.');
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+    setFieldError('register-email', 'error-email', 'Invalid email format.');
+  } else {
+    setFieldError('register-email', 'error-email', '');
+  }
+}
+
+function validateUsername() {
+  const val = document.getElementById('register-username').value.trim();
+  if (!val) { setFieldError('register-username', 'error-username', ''); return; }
+  if (val.length > 64) {
+    setFieldError('register-username', 'error-username', 'Max 64 characters.');
+  } else if (!/^[a-zA-Z0-9_.-]+$/.test(val)) {
+    setFieldError('register-username', 'error-username', 'Only letters, numbers, underscores, hyphens, and dots.');
+  } else {
+    setFieldError('register-username', 'error-username', '');
+  }
+}
+
+function validatePassword() {
+  const val = document.getElementById('register-password').value;
+  const hint = document.getElementById('hint-password');
+  if (!val) {
+    setFieldError('register-password', 'error-password', '');
+    hint.classList.remove('hidden');
+    return;
+  }
+  if (val.length < 6) {
+    hint.classList.add('hidden');
+    setFieldError('register-password', 'error-password', 'Must be at least 6 characters.');
+  } else {
+    setFieldError('register-password', 'error-password', '');
+    hint.classList.add('hidden');
+  }
+  // Re-validate confirm if it has a value
+  const confirmVal = document.getElementById('register-confirm-password').value;
+  if (confirmVal) validateConfirmPassword();
+}
+
+function validateConfirmPassword() {
+  const confirmVal = document.getElementById('register-confirm-password').value;
+  if (!confirmVal) { setFieldError('register-confirm-password', 'error-confirm-password', ''); return; }
+  const passVal = document.getElementById('register-password').value;
+  if (confirmVal !== passVal) {
+    setFieldError('register-confirm-password', 'error-confirm-password', 'Passwords do not match.');
+  } else {
+    setFieldError('register-confirm-password', 'error-confirm-password', '');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('login-form').addEventListener('submit', handleLogin);
   document.getElementById('register-form').addEventListener('submit', handleRegister);
@@ -261,4 +342,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-logout').addEventListener('click', handleLogout);
   document.getElementById('link-show-register').addEventListener('click', (e) => { e.preventDefault(); showRegister(); });
   document.getElementById('link-show-login').addEventListener('click', (e) => { e.preventDefault(); showLogin(); });
+
+  // Wire up real-time validation on registration fields
+  document.getElementById('register-display-name').addEventListener('input', validateDisplayName);
+  document.getElementById('register-email').addEventListener('input', validateEmail);
+  document.getElementById('register-username').addEventListener('input', validateUsername);
+  document.getElementById('register-password').addEventListener('input', validatePassword);
+  document.getElementById('register-confirm-password').addEventListener('input', validateConfirmPassword);
 });
