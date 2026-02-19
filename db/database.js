@@ -256,6 +256,14 @@ async function initialize() {
     _saveDb();
   }
 
+  // --- Performance indexes that depend on user_id migration ---
+  db._db.run('CREATE INDEX IF NOT EXISTS idx_contacts_user_id ON contacts(user_id)');
+  db._db.run('CREATE INDEX IF NOT EXISTS idx_contacts_user_last_name ON contacts(user_id, last_name)');
+  db._db.run('CREATE INDEX IF NOT EXISTS idx_contacts_user_email ON contacts(user_id, email)');
+  db._db.run('CREATE INDEX IF NOT EXISTS idx_contacts_user_warmth ON contacts(user_id, warmth_score)');
+  db._db.run('CREATE INDEX IF NOT EXISTS idx_donations_user_id ON donations(user_id)');
+  db._db.run('CREATE INDEX IF NOT EXISTS idx_outreaches_user_id ON outreaches(user_id)');
+
   // --- Bootstrap admin user ---
   const adminUser = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
   if (!adminUser) {
