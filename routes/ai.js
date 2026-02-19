@@ -79,18 +79,6 @@ router.post('/warmth-scores', async (req, res) => {
   }
 });
 
-// POST /api/ai/warmth-scores/recalculate-all — recalculate all warmth scores
-router.post('/warmth-scores/recalculate-all', async (req, res) => {
-  try {
-    const result = await generateWarmthScores({ forceAll: true, userId: req.user.id });
-    res.json(result);
-  } catch (err) {
-    console.error(err);
-    const status = err.statusCode || 500;
-    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
-  }
-});
-
 // POST /api/ai/generate-outreach/:contactId — generate outreach draft for a single contact
 router.post('/generate-outreach/:contactId', async (req, res) => {
   try {
