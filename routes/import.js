@@ -3,11 +3,44 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { getDb } = require('../db/database');
 const { parseFile, autoDetectMapping, applyMapping } = require('../services/importService');
+const { validateContact, sanitizeContactFields } = require('../middleware/validate');
+
+// Server-side store for uploaded file paths — keyed by opaque token.
+// Prevents clients from supplying arbitrary file paths (path traversal).
+const pendingUploads = new Map();
+const UPLOAD_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function storeUploadPath(filePath) {
+  const token = crypto.randomBytes(24).toString('hex');
+  pendingUploads.set(token, { filePath, createdAt: Date.now() });
+  return token;
+}
+
+function consumeUploadPath(token) {
+  const entry = pendingUploads.get(token);
+  if (!entry) return null;
+  pendingUploads.delete(token);
+  return entry.filePath;
+}
+
+// Periodically clean up expired tokens
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, entry] of pendingUploads) {
+    if (now - entry.createdAt > UPLOAD_TTL_MS) {
+      // Clean up the file if it still exists
+      try { fs.unlinkSync(entry.filePath); } catch {}
+      pendingUploads.delete(token);
+    }
+  }
+}, 5 * 60 * 1000).unref();
 
 const upload = multer({
   dest: path.join(__dirname, '..', 'uploads'),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (['.csv', '.xlsx', '.xls'].includes(ext)) {
@@ -32,8 +65,11 @@ router.post('/preview', upload.single('file'), (req, res) => {
     const mapping = autoDetectMapping(headers);
     const previewRows = rows.slice(0, 5);
 
+    // Store path server-side and return an opaque token to the client
+    const fileToken = storeUploadPath(newPath);
+
     res.json({
-      filePath: newPath,
+      fileToken,
       fileName: req.file.originalname,
       headers,
       mapping,
@@ -162,15 +198,17 @@ function mergeTags(db, contacts, userId) {
 // POST /api/import/execute
 router.post('/execute', (req, res) => {
   try {
-    const { filePath, mapping } = req.body;
+    const { fileToken, mapping } = req.body;
     const userId = req.user.id;
 
-    if (!filePath || !mapping) {
-      return res.status(400).json({ error: 'filePath and mapping are required' });
+    if (!fileToken || !mapping) {
+      return res.status(400).json({ error: 'fileToken and mapping are required' });
     }
 
-    if (!fs.existsSync(filePath)) {
-      return res.status(400).json({ error: 'Uploaded file not found. Please re-upload.' });
+    // Look up the real path from the server-side store — never trust client paths
+    const filePath = consumeUploadPath(fileToken);
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(400).json({ error: 'Uploaded file not found or expired. Please re-upload.' });
     }
 
     const { rows } = parseFile(filePath);
@@ -222,10 +260,24 @@ router.post('/force', (req, res) => {
       return res.json({ imported: 0 });
     }
 
-    const db = getDb();
-    insertContacts(db, contacts, userId);
+    // Validate and sanitize each contact before insertion
+    const validContacts = [];
+    const errors = [];
+    for (let i = 0; i < contacts.length; i++) {
+      const validationErrors = validateContact(contacts[i]);
+      if (validationErrors.length > 0) {
+        errors.push(`Contact ${i + 1}: ${validationErrors.join('; ')}`);
+        continue;
+      }
+      validContacts.push(sanitizeContactFields(contacts[i]));
+    }
 
-    res.json({ imported: contacts.length });
+    const db = getDb();
+    if (validContacts.length > 0) {
+      insertContacts(db, validContacts, userId);
+    }
+
+    res.json({ imported: validContacts.length, errors });
   } catch (err) {
     console.error(err);
     const status = err.statusCode || 500;

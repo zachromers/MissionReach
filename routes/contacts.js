@@ -36,6 +36,27 @@ const photoUpload = multer({
   },
 });
 
+// Validate uploaded file's actual content by checking magic bytes.
+// Returns the real image type or null if the bytes don't match any known signature.
+function validateImageMagicBytes(filePath) {
+  const fd = fs.openSync(filePath, 'r');
+  const buf = Buffer.alloc(12);
+  fs.readSync(fd, buf, 0, 12, 0);
+  fs.closeSync(fd);
+
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return 'jpeg';
+  // PNG: 89 50 4E 47
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return 'png';
+  // GIF: 47 49 46 38 (GIF8)
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return 'gif';
+  // WebP: RIFF....WEBP
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+      buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) return 'webp';
+
+  return null;
+}
+
 // Shared query builder for contacts list + CSV export
 function buildContactQuery(query, userId, { paginate = true } = {}) {
   const { search, tag, sort, order, page, limit,
@@ -656,6 +677,14 @@ router.post('/:id/photo', photoUpload.single('photo'), (req, res) => {
     if (!contact) return res.status(404).json({ error: 'Contact not found' });
 
     if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
+
+    // Validate the file's actual content matches a real image format
+    const detectedType = validateImageMagicBytes(req.file.path);
+    if (!detectedType) {
+      // Not a valid image — delete the uploaded file and reject
+      try { fs.unlinkSync(req.file.path); } catch {}
+      return res.status(400).json({ error: 'Uploaded file is not a valid image. Only JPEG, PNG, GIF, and WebP are accepted.' });
+    }
 
     // Delete old uploaded photo if it exists (don't delete external URLs)
     const oldUrl = contact.photo_url || '';

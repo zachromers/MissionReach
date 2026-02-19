@@ -150,12 +150,17 @@ function preFilterContacts(userPrompt, excludeIds = [], userId) {
 
   // "this year" / "last year" donation scoping
   const currentYear = new Date().getFullYear();
+  const thisYearStart = `${currentYear}-01-01`;
+  const lastYearStart = `${currentYear - 1}-01-01`;
   if (/this year/i.test(prompt) && /donor|donated|gave|giving/i.test(prompt)) {
-    where.push(`EXISTS (SELECT 1 FROM donations d WHERE d.contact_id = c.id AND d.date >= '${currentYear}-01-01')`);
+    where.push(`EXISTS (SELECT 1 FROM donations d WHERE d.contact_id = c.id AND d.date >= ?)`);
+    params.push(thisYearStart);
   }
   if (/last year.*haven.?t.*this year|last year.*not.*this year/i.test(prompt)) {
-    where.push(`EXISTS (SELECT 1 FROM donations d WHERE d.contact_id = c.id AND d.date >= '${currentYear - 1}-01-01' AND d.date < '${currentYear}-01-01')`);
-    where.push(`NOT EXISTS (SELECT 1 FROM donations d WHERE d.contact_id = c.id AND d.date >= '${currentYear}-01-01')`);
+    where.push(`EXISTS (SELECT 1 FROM donations d WHERE d.contact_id = c.id AND d.date >= ? AND d.date < ?)`);
+    params.push(lastYearStart, thisYearStart);
+    where.push(`NOT EXISTS (SELECT 1 FROM donations d WHERE d.contact_id = c.id AND d.date >= ?)`);
+    params.push(thisYearStart);
   }
 
   // "visit in person", "in my area", "local"
@@ -167,7 +172,8 @@ function preFilterContacts(userPrompt, excludeIds = [], userId) {
   if (/quarter/i.test(prompt)) {
     const month = new Date().getMonth();
     const qStart = new Date(currentYear, Math.floor(month / 3) * 3, 1).toISOString().split('T')[0];
-    where.push(`NOT EXISTS (SELECT 1 FROM outreaches o WHERE o.contact_id = c.id AND o.date >= '${qStart}')`);
+    where.push(`NOT EXISTS (SELECT 1 FROM outreaches o WHERE o.contact_id = c.id AND o.date >= ?)`);
+    params.push(qStart);
   }
 
   // Build the query
@@ -394,10 +400,10 @@ Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reas
       }
 
       if (parsed && parsed.scores) {
-        const updateStmt = db.prepare('UPDATE contacts SET warmth_score = ?, warmth_score_reason = ?, warmth_score_updated_at = datetime(\'now\') WHERE id = ?');
+        const updateStmt = db.prepare('UPDATE contacts SET warmth_score = ?, warmth_score_reason = ?, warmth_score_updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?');
         for (const entry of parsed.scores) {
           const score = Math.max(1, Math.min(5, Math.round(entry.score)));
-          updateStmt.run(score, entry.reason || null, entry.id);
+          updateStmt.run(score, entry.reason || null, entry.id, userId);
           totalUpdated++;
         }
       }
@@ -473,7 +479,7 @@ Return ONLY valid JSON: { "scores": [{ "id": <contact_id>, "score": <1-5>, "reas
     if (parsed && parsed.scores && parsed.scores[0]) {
       const score = Math.max(1, Math.min(5, Math.round(parsed.scores[0].score)));
       const reason = parsed.scores[0].reason || null;
-      db.prepare('UPDATE contacts SET warmth_score = ?, warmth_score_reason = ?, warmth_score_updated_at = datetime(\'now\') WHERE id = ?').run(score, reason, contactId);
+      db.prepare('UPDATE contacts SET warmth_score = ?, warmth_score_reason = ?, warmth_score_updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?').run(score, reason, contactId, userId);
     }
   } catch (err) {
     logger.error('single_warmth_score_error', { error: err.message, contactId });

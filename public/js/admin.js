@@ -1,5 +1,29 @@
 // Admin panel — user management
 
+// --- Registration toggle ---
+const regCheckbox = document.getElementById('admin-allow-registration');
+async function loadRegistrationSetting() {
+  try {
+    const data = await api('api/admin/settings/registration');
+    regCheckbox.checked = data.allow_registration;
+  } catch (err) {
+    console.error('Error loading registration setting:', err);
+  }
+}
+
+regCheckbox.addEventListener('change', async () => {
+  try {
+    await api('api/admin/settings/registration', {
+      method: 'PUT',
+      body: { allow_registration: regCheckbox.checked },
+    });
+  } catch (err) {
+    // Revert on failure
+    regCheckbox.checked = !regCheckbox.checked;
+    alert('Error updating registration setting: ' + err.message);
+  }
+});
+
 async function loadAdminUsers() {
   try {
     const users = await api('api/admin/users');

@@ -1,7 +1,7 @@
 // Import page logic
 
 let importState = {
-  filePath: null,
+  fileToken: null,
   headers: [],
   mapping: {},
   totalRows: 0,
@@ -61,7 +61,7 @@ uploadBtn.addEventListener('click', async () => {
 
     if (!res.ok) throw new Error(data.error);
 
-    importState.filePath = data.filePath;
+    importState.fileToken = data.fileToken;
     importState.headers = data.headers;
     importState.mapping = data.mapping;
     importState.totalRows = data.totalRows;
@@ -158,7 +158,7 @@ document.getElementById('btn-import-execute').addEventListener('click', async ()
     const data = await api('api/import/execute', {
       method: 'POST',
       body: {
-        filePath: importState.filePath,
+        fileToken: importState.fileToken,
         mapping: importState.mapping,
       },
     });

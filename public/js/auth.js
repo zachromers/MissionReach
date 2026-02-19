@@ -27,6 +27,18 @@ function showLogin() {
   document.getElementById('register-page').classList.add('hidden');
   document.getElementById('app-shell').classList.add('hidden');
   document.getElementById('force-password-page').classList.add('hidden');
+
+  // Check if self-registration is allowed and show/hide the register link
+  fetch('api/auth/registration-status')
+    .then(res => res.json())
+    .then(data => {
+      const link = document.getElementById('link-show-register');
+      if (link) link.style.display = data.allowed ? '' : 'none';
+    })
+    .catch(() => {
+      const link = document.getElementById('link-show-register');
+      if (link) link.style.display = 'none';
+    });
 }
 
 function showRegister() {

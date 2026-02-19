@@ -342,7 +342,7 @@ async function initialize() {
   const adminUser = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
   if (!adminUser) {
     const bcrypt = require('bcryptjs');
-    const hash = bcrypt.hashSync('admin', 10);
+    const hash = await bcrypt.hash('admin', 10);
     db.prepare('INSERT INTO users (username, password_hash, display_name, role, must_change_password) VALUES (?, ?, ?, ?, 1)').run('admin', hash, 'Administrator', 'admin');
     console.log('Created default admin user (username: admin, password: admin)');
   }

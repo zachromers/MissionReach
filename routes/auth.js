@@ -24,7 +24,7 @@ const COOKIE_OPTIONS = {
 };
 
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const username = stripHtml(req.body.username);
     const password = req.body.password;
@@ -37,7 +37,7 @@ router.post('/login', (req, res) => {
 
     // Always run bcrypt compare to prevent timing-based user enumeration
     const DUMMY_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
-    const valid = bcrypt.compareSync(password, user ? user.password_hash : DUMMY_HASH);
+    const valid = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH);
     if (!user || !valid) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
@@ -67,9 +67,27 @@ router.post('/login', (req, res) => {
   }
 });
 
-// POST /api/auth/register — self-registration (public)
-router.post('/register', (req, res) => {
+// GET /api/auth/registration-status — check if self-registration is enabled (public)
+router.get('/registration-status', (req, res) => {
   try {
+    const db = getDb();
+    const row = db.prepare("SELECT value FROM settings WHERE user_id = 0 AND key = 'allow_registration'").get();
+    res.json({ allowed: row ? row.value === '1' : false });
+  } catch (err) {
+    res.json({ allowed: false });
+  }
+});
+
+// POST /api/auth/register — self-registration (public, must be enabled by admin)
+router.post('/register', async (req, res) => {
+  try {
+    // Check if self-registration is enabled
+    const db = getDb();
+    const regSetting = db.prepare("SELECT value FROM settings WHERE user_id = 0 AND key = 'allow_registration'").get();
+    if (!regSetting || regSetting.value !== '1') {
+      return res.status(403).json({ error: 'Self-registration is disabled. Contact an administrator.' });
+    }
+
     const username = stripHtml(req.body.username);
     const email = stripHtml(req.body.email);
     const display_name = stripHtml(req.body.display_name);
@@ -101,8 +119,6 @@ router.post('/register', (req, res) => {
       return res.status(400).json({ error: 'Passwords do not match' });
     }
 
-    const db = getDb();
-
     // Check username uniqueness
     const existingUser = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(username);
     if (existingUser) {
@@ -115,7 +131,7 @@ router.post('/register', (req, res) => {
       return res.status(409).json({ error: 'Email already in use' });
     }
 
-    const hash = bcrypt.hashSync(password, 10);
+    const hash = await bcrypt.hash(password, 10);
     const result = db.prepare(
       'INSERT INTO users (username, password_hash, display_name, email, role, must_change_password) VALUES (?, ?, ?, ?, ?, 0)'
     ).run(username, hash, display_name, email, 'user');
@@ -174,7 +190,7 @@ router.get('/me', requireAuth, (req, res) => {
 });
 
 // PUT /api/auth/password — change own password
-router.put('/password', requireAuth, (req, res) => {
+router.put('/password', requireAuth, async (req, res) => {
   try {
     const { current_password, new_password } = req.body;
     if (!current_password || !new_password) {
@@ -187,12 +203,12 @@ router.put('/password', requireAuth, (req, res) => {
     const db = getDb();
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
 
-    const valid = bcrypt.compareSync(current_password, user.password_hash);
+    const valid = await bcrypt.compare(current_password, user.password_hash);
     if (!valid) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
-    const hash = bcrypt.hashSync(new_password, 10);
+    const hash = await bcrypt.hash(new_password, 10);
     // Increment token_version to invalidate all existing tokens
     db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hash, req.user.id);
 

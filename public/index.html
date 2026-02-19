@@ -436,6 +436,14 @@
           <h2>User Management</h2>
           <p style="color: var(--gray-400); font-size: 14px; margin-bottom: 16px;">Create, edit, and delete user accounts. Each user has their own isolated data.</p>
 
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px;background:var(--gray-50);border-radius:8px;">
+            <label for="admin-allow-registration" style="font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" id="admin-allow-registration">
+              Allow self-registration
+            </label>
+            <span style="color:var(--gray-400);font-size:13px;">When enabled, anyone can create an account from the login page.</span>
+          </div>
+
           <button id="btn-add-user" class="btn btn-primary" style="margin-bottom: 16px;">Add New User</button>
 
           <div id="admin-user-form-wrap" class="hidden" style="margin-bottom: 24px;">

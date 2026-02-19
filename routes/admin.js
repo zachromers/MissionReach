@@ -17,6 +17,32 @@ function validateUsername(u) {
 // All admin routes require admin role (requireAuth is applied at server level)
 router.use(requireAdmin);
 
+// GET /api/admin/settings/registration — check registration setting
+router.get('/settings/registration', (req, res) => {
+  try {
+    const db = getDb();
+    const row = db.prepare("SELECT value FROM settings WHERE user_id = 0 AND key = 'allow_registration'").get();
+    res.json({ allow_registration: row ? row.value === '1' : false });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /api/admin/settings/registration — toggle registration
+router.put('/settings/registration', (req, res) => {
+  try {
+    const db = getDb();
+    const allow = req.body.allow_registration ? '1' : '0';
+    db.prepare("INSERT INTO settings (user_id, key, value) VALUES (0, 'allow_registration', ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value").run(allow);
+    logger.info('registration_setting_changed', { adminId: req.user.id, allow_registration: allow === '1', requestId: req.requestId });
+    res.json({ allow_registration: allow === '1' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/admin/users — list all users
 router.get('/users', (req, res) => {
   try {
@@ -31,7 +57,7 @@ router.get('/users', (req, res) => {
 });
 
 // POST /api/admin/users — create a user
-router.post('/users', (req, res) => {
+router.post('/users', async (req, res) => {
   try {
     const username = stripHtml(req.body.username);
     const email = stripHtml(req.body.email);
@@ -70,7 +96,7 @@ router.post('/users', (req, res) => {
     }
 
     const DEFAULT_PASSWORD = 'password123';
-    const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
+    const hash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
     const validRole = role === 'admin' ? 'admin' : 'user';
     const result = db.prepare(
       'INSERT INTO users (username, password_hash, display_name, email, role, must_change_password) VALUES (?, ?, ?, ?, ?, 1)'
@@ -87,7 +113,7 @@ router.post('/users', (req, res) => {
 });
 
 // PUT /api/admin/users/:id — update a user
-router.put('/users/:id', (req, res) => {
+router.put('/users/:id', async (req, res) => {
   try {
     const db = getDb();
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
@@ -142,7 +168,7 @@ router.put('/users/:id', (req, res) => {
         return res.status(400).json({ error: 'Password must be at least 6 characters' });
       }
       updates.push('password_hash = ?');
-      params.push(bcrypt.hashSync(password, 10));
+      params.push(await bcrypt.hash(password, 10));
       // Force user to change password on next login and invalidate existing tokens
       updates.push('must_change_password = 1');
       updates.push('token_version = token_version + 1');

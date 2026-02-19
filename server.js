@@ -4,7 +4,7 @@ const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { initialize, flushAndClose, getDb } = require('./db/database');
-const { requireAuth } = require('./middleware/auth');
+const { requireAuth, requirePasswordChanged } = require('./middleware/auth');
 const { logger, requestLogger } = require('./middleware/logger');
 
 const app = express();
@@ -108,6 +108,11 @@ app.use('/api/auth', require('./routes/auth'));
 // Apply requireAuth and general rate limiting to all other /api/* routes
 app.use('/api', requireAuth);
 app.use('/api', apiLimiter);
+
+// Block access to protected resources until the user changes their default password.
+// Auth routes (/api/auth/password, /api/auth/me) are exempt because they're
+// mounted above before requireAuth is applied.
+app.use('/api', requirePasswordChanged);
 
 // AI routes get additional stricter rate limiting
 app.use('/api/ai', aiLimiter);
