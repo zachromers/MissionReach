@@ -24,7 +24,7 @@ function requireAuth(req, res, next) {
 
   try {
     const secret = getJwtSecret();
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] });
     const db = getDb();
     const user = db.prepare('SELECT id, username, display_name, role FROM users WHERE id = ?').get(decoded.userId);
     if (!user) {

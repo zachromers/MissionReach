@@ -15,10 +15,11 @@ function validateUsername(u) {
 }
 
 const TOKEN_EXPIRY = '7d';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: 'lax',
-  secure: false, // set to true behind HTTPS
+  secure: IS_PRODUCTION,
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
@@ -43,7 +44,7 @@ router.post('/login', (req, res) => {
     }
 
     const secret = getJwtSecret();
-    const token = jwt.sign({ userId: user.id }, secret, { expiresIn: TOKEN_EXPIRY });
+    const token = jwt.sign({ userId: user.id }, secret, { expiresIn: TOKEN_EXPIRY, algorithm: 'HS256' });
 
     res.cookie('token', token, COOKIE_OPTIONS);
     res.json({
@@ -115,7 +116,7 @@ router.post('/register', (req, res) => {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
 
     const secret = getJwtSecret();
-    const token = jwt.sign({ userId: user.id }, secret, { expiresIn: TOKEN_EXPIRY });
+    const token = jwt.sign({ userId: user.id }, secret, { expiresIn: TOKEN_EXPIRY, algorithm: 'HS256' });
 
     res.cookie('token', token, COOKIE_OPTIONS);
     res.status(201).json({
