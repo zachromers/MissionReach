@@ -18,7 +18,7 @@ function validateUsername(u) {
 const TOKEN_EXPIRY = '7d';
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  sameSite: 'lax',
+  sameSite: 'strict',
   secure: process.env.NODE_ENV !== 'development',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
