@@ -276,7 +276,7 @@ function renderAiResults(data, append) {
     const photoSrc = getPhotoUrl(c, 64);
     card.innerHTML = `
       <div class="result-card-header">
-        <div class="result-card-name"><img class="avatar avatar-sm" src="${photoSrc}" alt=""><h3>${escapeHtml(name)}</h3></div>
+        <div class="result-card-name" style="cursor:pointer" data-contact-id="${rec.contact_id}"><img class="avatar avatar-sm" src="${photoSrc}" alt=""><h3>${escapeHtml(name)}</h3></div>
         <button class="btn btn-sm btn-log-outreach" data-contact-id="${rec.contact_id}" data-email="${escapeHtml(c.email || '')}">Log This Outreach</button>
       </div>
       <div class="result-meta">
@@ -295,6 +295,11 @@ function renderAiResults(data, append) {
       </div>
       <div class="drafts-container"></div>
     `;
+
+    // Open contact detail when clicking name/avatar
+    card.querySelector('.result-card-name').addEventListener('click', () => {
+      openContactDetail(rec.contact_id);
+    });
 
     // Attach draft generation listeners
     card.querySelectorAll('.btn-generate-draft').forEach(btn => {
