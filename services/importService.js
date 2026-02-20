@@ -3,6 +3,8 @@ const { parse } = require('csv-parse/sync');
 const fs = require('fs');
 const path = require('path');
 
+const MAX_IMPORT_ROWS = 50000;
+
 const COLUMN_MAP_ALIASES = {
   full_name: ['full name', 'full_name', 'name', 'contact name', 'contact'],
   first_name: ['first_name', 'firstname', 'first name', 'fname', 'first'],
@@ -29,6 +31,9 @@ function parseFile(filePath) {
     const content = fs.readFileSync(filePath, 'utf-8');
     const records = parse(content, { columns: true, skip_empty_lines: true, trim: true });
     if (records.length === 0) return { headers: [], rows: [] };
+    if (records.length > MAX_IMPORT_ROWS) {
+      throw Object.assign(new Error(`File exceeds the maximum of ${MAX_IMPORT_ROWS.toLocaleString()} rows`), { statusCode: 400 });
+    }
     return { headers: Object.keys(records[0]), rows: records };
   }
 
@@ -38,6 +43,9 @@ function parseFile(filePath) {
   const sheet = workbook.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
   if (rows.length === 0) return { headers: [], rows: [] };
+  if (rows.length > MAX_IMPORT_ROWS) {
+    throw Object.assign(new Error(`File exceeds the maximum of ${MAX_IMPORT_ROWS.toLocaleString()} rows`), { statusCode: 400 });
+  }
   return { headers: Object.keys(rows[0]), rows };
 }
 

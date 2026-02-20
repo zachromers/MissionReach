@@ -669,7 +669,12 @@ router.post('/:id/outreaches', (req, res) => {
 });
 
 // POST /api/contacts/:id/photo — upload a photo
-router.post('/:id/photo', photoUpload.single('photo'), (req, res) => {
+router.post('/:id/photo', (req, res, next) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'Invalid contact ID' });
+  }
+  next();
+}, photoUpload.single('photo'), (req, res) => {
   try {
     const db = getDb();
     const userId = req.user.id;

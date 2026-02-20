@@ -1,4 +1,6 @@
 node_modules/
 uploads/
 db/missionreach.db
+db/backups/
 .jwt-secret
+.env
