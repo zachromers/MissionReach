@@ -4,6 +4,11 @@ const gmailService = require('../services/gmailService');
 const { getDb } = require('../db/database');
 const { logger } = require('../middleware/logger');
 
+// Get the app base path for redirects (supports reverse proxy sub-paths)
+function getAppBase() {
+  return process.env.APP_BASE_PATH || '/';
+}
+
 // GET /api/gmail/status — check if current user has Gmail connected
 router.get('/status', (req, res) => {
   try {
@@ -29,32 +34,37 @@ router.get('/connect', (req, res) => {
   }
 });
 
-// GET /api/gmail/callback — Google redirects here after consent
+// GET /api/gmail/callback — Google redirects here after consent.
+// This route is mounted BEFORE requireAuth in server.js because
+// sameSite=strict cookies aren't sent on cross-site redirects from Google.
+// The signed JWT in the state parameter authenticates the user instead.
 router.get('/callback', async (req, res) => {
   try {
     const { code, state, error } = req.query;
 
     if (error) {
       logger.warn('gmail_callback_denied', { error });
-      return res.redirect('/?gmail=denied');
+      return res.redirect(getAppBase() + '?gmail=denied');
     }
 
-    if (!code) {
-      return res.redirect('/?gmail=error');
+    if (!code || !state) {
+      return res.redirect(getAppBase() + '?gmail=error');
     }
 
-    // Validate state matches the authenticated user
-    const userId = req.user.id;
-    if (state && String(state) !== String(userId)) {
-      logger.warn('gmail_callback_state_mismatch', { expected: userId, got: state });
-      return res.redirect('/?gmail=error');
+    // Verify the signed state token to get the userId
+    let userId;
+    try {
+      userId = gmailService.verifyState(state);
+    } catch (stateErr) {
+      logger.warn('gmail_callback_invalid_state', { error: stateErr.message });
+      return res.redirect(getAppBase() + '?gmail=error');
     }
 
     await gmailService.handleCallback(code, userId);
-    res.redirect('/?gmail=connected');
+    res.redirect(getAppBase() + '?gmail=connected');
   } catch (err) {
     logger.error('gmail_callback_error', { error: err.message });
-    res.redirect('/?gmail=error');
+    res.redirect(getAppBase() + '?gmail=error');
   }
 });
 

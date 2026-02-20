@@ -11,6 +11,9 @@ const { logger, requestLogger } = require('./middleware/logger');
 const app = express();
 const PORT = process.env.PORT || 3004;
 
+// Trust first proxy (nginx/reverse proxy) for correct client IP in rate limiting and secure cookies
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: {
@@ -107,6 +110,11 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth', require('./routes/auth'));
+
+// Gmail OAuth callback — mounted before requireAuth because Google's redirect
+// won't include the auth cookie (sameSite=strict blocks cross-site navigations).
+// The route uses a signed JWT in the state parameter to verify the user instead.
+app.get('/api/gmail/callback', require('./routes/gmail'));
 
 // Apply requireAuth and general rate limiting to all other /api/* routes
 app.use('/api', requireAuth);

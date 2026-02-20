@@ -1,5 +1,7 @@
 const { google } = require('googleapis');
+const jwt = require('jsonwebtoken');
 const { getDb } = require('../db/database');
+const { getJwtSecret } = require('../middleware/auth');
 const { logger } = require('../middleware/logger');
 
 function getOAuth2Client() {
@@ -11,6 +13,9 @@ function getOAuth2Client() {
 }
 
 function generateAuthUrl(userId) {
+  // Sign the userId into a short-lived JWT so the callback can verify
+  // the user without relying on the auth cookie (sameSite=strict blocks it)
+  const state = jwt.sign({ userId }, getJwtSecret(), { expiresIn: '10m' });
   const oauth2Client = getOAuth2Client();
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -19,8 +24,13 @@ function generateAuthUrl(userId) {
       'https://www.googleapis.com/auth/gmail.send',
       'https://www.googleapis.com/auth/userinfo.email',
     ],
-    state: String(userId),
+    state,
   });
+}
+
+function verifyState(state) {
+  const decoded = jwt.verify(state, getJwtSecret(), { algorithms: ['HS256'] });
+  return decoded.userId;
 }
 
 async function handleCallback(code, userId) {
@@ -144,4 +154,4 @@ async function disconnect(userId) {
   }
 }
 
-module.exports = { generateAuthUrl, handleCallback, isConnected, getStatus, sendEmail, disconnect };
+module.exports = { generateAuthUrl, verifyState, handleCallback, isConnected, getStatus, sendEmail, disconnect };
