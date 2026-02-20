@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getDb } = require('../db/database');
-const { getJwtSecret, requireAuth } = require('../middleware/auth');
+const { getJwtSecret, requireAuth, requirePasswordChanged } = require('../middleware/auth');
 const { logger } = require('../middleware/logger');
 
 // Input sanitization helpers
@@ -225,6 +225,70 @@ router.put('/password', requireAuth, async (req, res) => {
     logger.info('password_changed', { userId: req.user.id, requestId: req.requestId });
 
     res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
+  }
+});
+
+// GET /api/auth/ai-history — paginated list of user's own AI prompts
+router.get('/ai-history', requireAuth, requirePasswordChanged, (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
+    const offset = (page - 1) * limit;
+
+    const db = getDb();
+    const total = db.prepare('SELECT COUNT(*) as count FROM ai_prompts WHERE user_id = ?').get(req.user.id).count;
+    const prompts = db.prepare('SELECT * FROM ai_prompts WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?').all(req.user.id, limit, offset);
+
+    res.json({
+      prompts,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    });
+  } catch (err) {
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
+  }
+});
+
+// DELETE /api/auth/account — self-deletion with cascade
+router.delete('/account', requireAuth, requirePasswordChanged, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required to confirm account deletion' });
+    }
+
+    if (req.user.role === 'admin') {
+      return res.status(400).json({ error: 'Admin accounts cannot be self-deleted. Another admin must remove your account.' });
+    }
+
+    const db = getDb();
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Password is incorrect' });
+    }
+
+    // Cascade delete all user data
+    db.prepare('DELETE FROM outreaches WHERE contact_id IN (SELECT id FROM contacts WHERE user_id = ?)').run(req.user.id);
+    db.prepare('DELETE FROM donations WHERE contact_id IN (SELECT id FROM contacts WHERE user_id = ?)').run(req.user.id);
+    db.prepare('DELETE FROM contacts WHERE user_id = ?').run(req.user.id);
+    db.prepare('DELETE FROM ai_prompts WHERE user_id = ?').run(req.user.id);
+    db.prepare('DELETE FROM settings WHERE user_id = ?').run(req.user.id);
+    db.prepare('DELETE FROM gmail_tokens WHERE user_id = ?').run(req.user.id);
+    db.prepare('DELETE FROM users WHERE id = ?').run(req.user.id);
+
+    logger.info('account_deleted', { userId: req.user.id, username: user.username, requestId: req.requestId });
+
+    res.clearCookie('token', COOKIE_OPTIONS);
+    res.json({ message: 'Account deleted successfully' });
   } catch (err) {
     console.error(err);
     const status = err.statusCode || 500;

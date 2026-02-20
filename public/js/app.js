@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (target === 'contacts') loadContacts();
       if (target === 'search') initSearch();
       if (target === 'settings') loadSettings();
+      if (target === 'profile') loadProfile();
       if (target === 'admin') { loadAdminUsers(); loadRegistrationSetting(); loadModelSetting(); }
     });
   });
@@ -47,10 +48,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     initHome();
   });
 
-  // "Change Password" banner button — navigate to settings and focus password field
+  // "Change Password" banner button — navigate to profile and focus password field
   document.getElementById('btn-change-password-banner').addEventListener('click', () => {
-    document.querySelector('[data-tab="settings"]').click();
-    document.getElementById('current-password').focus();
+    document.querySelector('[data-tab="profile"]').click();
+    document.getElementById('profile-current-password').focus();
   });
 
   // Handle Gmail OAuth callback redirect

@@ -1315,6 +1315,8 @@ input:focus, textarea:focus, select:focus {
 
 #settings-message,
 #password-message,
+#profile-password-message,
+#profile-delete-message,
 #admin-form-message {
   margin-top: 12px;
   padding: 10px 14px;
@@ -1323,7 +1325,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 #settings-message.success,
-#password-message.success {
+#password-message.success,
+#profile-password-message.success {
   background: var(--green-50);
   color: var(--green-700);
   border: 1px solid #bbf7d0;
@@ -1331,6 +1334,8 @@ input:focus, textarea:focus, select:focus {
 
 #settings-message.error,
 #password-message.error,
+#profile-password-message.error,
+#profile-delete-message.error,
 #admin-form-message.error {
   background: var(--red-50);
   color: var(--red-700);
