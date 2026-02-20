@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
@@ -18,6 +19,8 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https://ui-avatars.com"],
+      connectSrc: ["'self'"],
+      formAction: ["'self'", "https://accounts.google.com"],
     },
   },
 }));
@@ -124,6 +127,7 @@ app.use('/api/outreaches', require('./routes/outreaches'));
 app.use('/api/import', require('./routes/import'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/gmail', require('./routes/gmail'));
 app.use('/api/admin', require('./routes/admin'));
 
 // Serve the SPA for any non-API route

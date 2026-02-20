@@ -7,10 +7,44 @@ async function loadSettings() {
     document.getElementById('setting-context').value = settings.missionary_context || '';
     document.getElementById('setting-stale-days').value = settings.default_stale_days || '90';
     loadTagManagement();
+    loadGmailStatus();
   } catch (err) {
     console.error('Error loading settings:', err);
   }
 }
+
+async function loadGmailStatus() {
+  const statusText = document.getElementById('gmail-status-text');
+  const connectBtn = document.getElementById('btn-gmail-connect');
+  const disconnectBtn = document.getElementById('btn-gmail-disconnect');
+
+  try {
+    const status = await api('api/gmail/status');
+    if (status.connected) {
+      statusText.innerHTML = '<span style="color:var(--green-600);font-weight:600;">Connected</span> — ' + escapeHtml(status.email || 'Gmail account');
+      connectBtn.classList.add('hidden');
+      disconnectBtn.classList.remove('hidden');
+    } else {
+      statusText.textContent = 'Not connected';
+      connectBtn.classList.remove('hidden');
+      disconnectBtn.classList.add('hidden');
+    }
+  } catch {
+    statusText.textContent = 'Unable to check Gmail status';
+    connectBtn.classList.remove('hidden');
+    disconnectBtn.classList.add('hidden');
+  }
+}
+
+document.getElementById('btn-gmail-disconnect').addEventListener('click', async () => {
+  if (!confirm('Disconnect your Gmail account? You will need to reconnect to send emails directly.')) return;
+  try {
+    await api('api/gmail/disconnect', { method: 'POST' });
+    loadGmailStatus();
+  } catch (err) {
+    alert('Error disconnecting Gmail: ' + err.message);
+  }
+});
 
 async function loadTagManagement() {
   const listEl = document.getElementById('tag-manage-list');

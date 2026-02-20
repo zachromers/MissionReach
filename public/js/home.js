@@ -2,10 +2,21 @@
 
 const MODEL_LABELS = { haiku: 'Claude Haiku', sonnet: 'Claude Sonnet', opus: 'Claude Opus' };
 
+let gmailStatus = { connected: false, email: null };
+
+async function checkGmailStatus() {
+  try {
+    gmailStatus = await api('api/gmail/status');
+  } catch {
+    gmailStatus = { connected: false, email: null };
+  }
+}
+
 function initHome() {
   loadContactCarousel();
   loadModelIndicator();
   refreshWarmthScores();
+  checkGmailStatus();
 }
 
 async function refreshWarmthScores() {
@@ -361,8 +372,14 @@ async function generateDraftForContact(contactId, mode, btnEl, cardEl) {
     const subjectLine = mode === 'email' && result.subject
       ? `<strong>Subject: ${escapeHtml(result.subject)}</strong>` : '';
 
-    const emailBtn = mode === 'email' && c.email && result.subject
-      ? `<a class="copy-btn send-email-btn" href="${buildMailtoLink(c.email, result.subject, result.content)}" title="Open in your email client">Send Email</a>` : '';
+    let emailBtn = '';
+    if (mode === 'email' && c.email && result.subject) {
+      if (gmailStatus.connected) {
+        emailBtn = `<button class="copy-btn send-gmail-btn" data-to="${escapeHtml(c.email)}" data-subject="${escapeHtml(result.subject)}" data-contact-id="${contactId}" title="Send via Gmail">Send via Gmail</button>`;
+      } else {
+        emailBtn = `<a class="copy-btn send-email-btn" href="${buildMailtoLink(c.email, result.subject, result.content)}" title="Open in your email client">Send Email</a>`;
+      }
+    }
 
     details.innerHTML = `
       <summary>
@@ -387,6 +404,33 @@ async function generateDraftForContact(contactId, mode, btnEl, cardEl) {
       const btn = e.currentTarget;
       copyToClipboard(btn.closest('.draft-content').querySelector('.draft-body').textContent, btn);
     });
+
+    const gmailBtn = details.querySelector('.send-gmail-btn');
+    if (gmailBtn) {
+      gmailBtn.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const to = btn.dataset.to;
+        const subject = btn.dataset.subject;
+        const draft = generatedDrafts.get(`${btn.dataset.contactId}-email`);
+        if (!draft) return;
+
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        try {
+          await api('api/gmail/send', {
+            method: 'POST',
+            body: { to, subject, body: draft.content, contactId: btn.dataset.contactId },
+          });
+          btn.textContent = 'Sent!';
+          btn.classList.add('sent');
+          setTimeout(() => { btn.textContent = 'Send via Gmail'; btn.classList.remove('sent'); btn.disabled = false; }, 3000);
+        } catch (err) {
+          alert('Failed to send email: ' + err.message);
+          btn.textContent = 'Send via Gmail';
+          btn.disabled = false;
+        }
+      });
+    }
 
     btnEl.textContent = originalText;
     btnEl.disabled = false;
@@ -570,12 +614,25 @@ function updateSendEmailButton() {
   const btn = document.getElementById('btn-send-email');
   if (mode === 'email' && email) {
     btn.classList.remove('hidden');
-    if (subject.trim() || content.trim()) {
-      btn.href = buildMailtoLink(email, subject, content);
-      btn.classList.remove('disabled');
-    } else {
+    if (gmailStatus.connected) {
+      btn.textContent = 'Send via Gmail';
       btn.removeAttribute('href');
-      btn.classList.add('disabled');
+      btn.removeAttribute('target');
+      if (subject.trim() || content.trim()) {
+        btn.classList.remove('disabled');
+      } else {
+        btn.classList.add('disabled');
+      }
+    } else {
+      btn.textContent = 'Send Email';
+      btn.setAttribute('target', '_blank');
+      if (subject.trim() || content.trim()) {
+        btn.href = buildMailtoLink(email, subject, content);
+        btn.classList.remove('disabled');
+      } else {
+        btn.removeAttribute('href');
+        btn.classList.add('disabled');
+      }
     }
   } else {
     btn.classList.add('hidden');
@@ -585,6 +642,37 @@ function updateSendEmailButton() {
 document.getElementById('outreach-mode').addEventListener('change', updateSendEmailButton);
 document.getElementById('outreach-subject').addEventListener('input', updateSendEmailButton);
 document.getElementById('outreach-content').addEventListener('input', updateSendEmailButton);
+
+// Handle Send via Gmail click in outreach modal
+document.getElementById('btn-send-email').addEventListener('click', async (e) => {
+  if (!gmailStatus.connected) return; // let the default mailto behavior work
+  e.preventDefault();
+
+  const btn = e.currentTarget;
+  if (btn.classList.contains('disabled')) return;
+
+  const email = document.getElementById('outreach-contact-email').value;
+  const subject = document.getElementById('outreach-subject').value;
+  const content = document.getElementById('outreach-content').value;
+  const contactId = document.getElementById('outreach-contact-id').value;
+
+  if (!email || (!subject.trim() && !content.trim())) return;
+
+  btn.textContent = 'Sending...';
+  btn.classList.add('disabled');
+  try {
+    await api('api/gmail/send', {
+      method: 'POST',
+      body: { to: email, subject, body: content, contactId },
+    });
+    btn.textContent = 'Sent!';
+    setTimeout(() => { btn.textContent = 'Send via Gmail'; btn.classList.remove('disabled'); }, 3000);
+  } catch (err) {
+    alert('Failed to send email: ' + err.message);
+    btn.textContent = 'Send via Gmail';
+    btn.classList.remove('disabled');
+  }
+});
 
 // Generate outreach draft button
 document.getElementById('btn-generate-outreach').addEventListener('click', async () => {

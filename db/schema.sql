@@ -76,6 +76,15 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS gmail_tokens (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  access_token TEXT NOT NULL,
+  refresh_token TEXT NOT NULL,
+  expiry_date INTEGER NOT NULL,
+  gmail_address TEXT,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Performance indexes (non-migration-dependent)
 CREATE INDEX IF NOT EXISTS idx_donations_contact_id ON donations(contact_id);
 CREATE INDEX IF NOT EXISTS idx_donations_date ON donations(date);

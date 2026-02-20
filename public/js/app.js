@@ -53,6 +53,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('current-password').focus();
   });
 
+  // Handle Gmail OAuth callback redirect
+  const urlParams = new URLSearchParams(window.location.search);
+  const gmailParam = urlParams.get('gmail');
+  if (gmailParam) {
+    // Clean the URL
+    window.history.replaceState({}, '', window.location.pathname);
+    if (gmailParam === 'connected') {
+      // Navigate to settings to show the connected state
+      document.querySelector('[data-tab="settings"]').click();
+      setTimeout(() => {
+        const statusEl = document.getElementById('gmail-status-text');
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--green-600);font-weight:600;">Gmail connected successfully!</span>';
+      }, 500);
+    } else if (gmailParam === 'denied') {
+      alert('Gmail connection was cancelled.');
+    } else if (gmailParam === 'error') {
+      alert('There was an error connecting Gmail. Please try again.');
+    }
+  }
+
   // Initialize home page
   initHome();
 });

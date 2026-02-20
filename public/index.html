@@ -429,6 +429,20 @@
 
           <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--gray-200);">
 
+          <div class="gmail-section">
+            <h3 style="margin-bottom: 8px;">Gmail Integration</h3>
+            <p style="color: var(--gray-400); font-size: 14px; margin-bottom: 12px;">Connect your Gmail account to send emails directly from MissionReach instead of opening your email client.</p>
+            <div id="gmail-status" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--gray-50);border-radius:8px;margin-bottom:12px;">
+              <span id="gmail-status-text" style="font-size:14px;color:var(--gray-500);">Checking Gmail status...</span>
+            </div>
+            <div id="gmail-actions" style="display:flex;gap:8px;">
+              <a id="btn-gmail-connect" class="btn btn-primary btn-sm hidden" href="api/gmail/connect">Connect Gmail</a>
+              <button id="btn-gmail-disconnect" class="btn btn-sm hidden" type="button">Disconnect Gmail</button>
+            </div>
+          </div>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--gray-200);">
+
           <div class="tag-manage-section">
             <h3 style="margin-bottom: 8px;">Manage Tags</h3>
             <p style="color: var(--gray-400); font-size: 14px; margin-bottom: 12px;">Add or remove tags available for tagging contacts. Tags currently assigned to contacts cannot be removed.</p>
