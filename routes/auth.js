@@ -39,8 +39,21 @@ router.post('/login', async (req, res) => {
     const DUMMY_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
     const valid = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH);
     if (!user || !valid) {
+      // Record login failure
+      try {
+        db.prepare('INSERT INTO audit_log (user_id, actor_id, action, detail, ip_address) VALUES (?, NULL, ?, ?, ?)').run(
+          user ? user.id : null, 'login_failure', JSON.stringify({ username }), req.ip
+        );
+      } catch (_) {}
       return res.status(401).json({ error: 'Invalid username or password' });
     }
+
+    // Record login success
+    try {
+      db.prepare('INSERT INTO audit_log (user_id, actor_id, action, ip_address) VALUES (?, ?, ?, ?)').run(
+        user.id, user.id, 'login_success', req.ip
+      );
+    } catch (_) {}
 
     const secret = getJwtSecret();
     const token = jwt.sign(
@@ -221,6 +234,13 @@ router.put('/password', requireAuth, async (req, res) => {
       { expiresIn: TOKEN_EXPIRY, algorithm: 'HS256' }
     );
     res.cookie('token', newToken, COOKIE_OPTIONS);
+
+    // Record password change in audit log
+    try {
+      db.prepare('INSERT INTO audit_log (user_id, actor_id, action, ip_address) VALUES (?, ?, ?, ?)').run(
+        req.user.id, req.user.id, 'password_changed', req.ip
+      );
+    } catch (_) {}
 
     logger.info('password_changed', { userId: req.user.id, requestId: req.requestId });
 

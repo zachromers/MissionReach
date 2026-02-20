@@ -493,9 +493,9 @@
 
       <!-- ADMIN PAGE -->
       <section id="page-admin" class="page">
-        <div class="settings-section" style="max-width: 800px;">
+        <div class="settings-section" style="max-width: 900px;">
           <h2>User Management</h2>
-          <p style="color: var(--gray-400); font-size: 14px; margin-bottom: 16px;">Create, edit, and delete user accounts. Each user has their own isolated data.</p>
+          <p style="color: var(--gray-400); font-size: 14px; margin-bottom: 16px;">Manage user accounts, view activity, and audit security events.</p>
 
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px;background:var(--gray-50);border-radius:8px;">
             <label for="admin-allow-registration" style="font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
@@ -515,47 +515,9 @@
             <span style="color:var(--gray-400);font-size:13px;">Choose which Claude model generates recommendations for all users.</span>
           </div>
 
-          <button id="btn-add-user" class="btn btn-primary" style="margin-bottom: 16px;">Add New User</button>
-
-          <div id="admin-user-form-wrap" class="hidden" style="margin-bottom: 24px;">
-            <div class="admin-user-form-card">
-              <h3 id="admin-form-title">Add User</h3>
-              <form id="admin-user-form">
-                <input type="hidden" id="admin-user-id">
-                <div class="form-group">
-                  <label for="admin-username">Username</label>
-                  <input type="text" id="admin-username" required>
-                </div>
-                <div class="form-group">
-                  <label for="admin-email">Email</label>
-                  <input type="email" id="admin-email" required>
-                </div>
-                <div class="form-group" id="admin-password-group">
-                  <label for="admin-password">Reset Password</label>
-                  <input type="password" id="admin-password" autocomplete="new-password">
-                  <small id="admin-password-hint">Minimum 6 characters.</small>
-                </div>
-                <div class="form-group" id="admin-default-password-note">
-                  <small style="color: var(--gray-500);">New users will be assigned the default password <strong>password123</strong> and will be required to change it on first login.</small>
-                </div>
-                <div class="form-group">
-                  <label for="admin-display-name">Display Name</label>
-                  <input type="text" id="admin-display-name">
-                </div>
-                <div class="form-group">
-                  <label for="admin-role">Role</label>
-                  <select id="admin-role">
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-                <div style="display:flex;gap:8px;">
-                  <button type="submit" class="btn btn-primary">Save</button>
-                  <button type="button" class="btn" id="btn-cancel-user">Cancel</button>
-                </div>
-                <div id="admin-form-message" class="hidden" style="margin-top: 8px;"></div>
-              </form>
-            </div>
+          <div class="contacts-search-row" style="margin-bottom: 16px;">
+            <input type="text" id="admin-search" placeholder="Search users..." class="search-input">
+            <button id="btn-add-user" class="btn btn-primary">Add New User</button>
           </div>
 
           <table class="admin-users-table" id="admin-users-table">
@@ -565,8 +527,8 @@
                 <th>Email</th>
                 <th>Display Name</th>
                 <th>Role</th>
-                <th>Created</th>
-                <th>Actions</th>
+                <th>Last Login</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody id="admin-users-tbody"></tbody>
@@ -574,6 +536,18 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- ADMIN USER DETAIL MODAL -->
+  <div id="admin-user-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 id="admin-modal-title">User Details</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body" id="admin-modal-body"></div>
+    </div>
   </div>
 
   <!-- CONTACT DETAIL MODAL -->

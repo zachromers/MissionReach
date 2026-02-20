@@ -35,6 +35,13 @@ router.put('/settings/registration', (req, res) => {
     const db = getDb();
     const allow = req.body.allow_registration ? '1' : '0';
     db.prepare("INSERT INTO settings (user_id, key, value) VALUES (0, 'allow_registration', ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value").run(allow);
+
+    try {
+      db.prepare('INSERT INTO audit_log (user_id, actor_id, action, detail, ip_address) VALUES (NULL, ?, ?, ?, ?)').run(
+        req.user.id, 'settings_changed', JSON.stringify({ setting: 'allow_registration', value: allow === '1' }), req.ip
+      );
+    } catch (_) {}
+
     logger.info('registration_setting_changed', { adminId: req.user.id, allow_registration: allow === '1', requestId: req.requestId });
     res.json({ allow_registration: allow === '1' });
   } catch (err) {
@@ -65,6 +72,13 @@ router.put('/settings/model', (req, res) => {
     }
     const db = getDb();
     db.prepare("INSERT INTO settings (user_id, key, value) VALUES (0, 'claude_model', ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value").run(model);
+
+    try {
+      db.prepare('INSERT INTO audit_log (user_id, actor_id, action, detail, ip_address) VALUES (NULL, ?, ?, ?, ?)').run(
+        req.user.id, 'settings_changed', JSON.stringify({ setting: 'claude_model', value: model }), req.ip
+      );
+    } catch (_) {}
+
     logger.info('model_setting_changed', { adminId: req.user.id, claude_model: model, requestId: req.requestId });
     res.json({ claude_model: model });
   } catch (err) {
@@ -73,12 +87,89 @@ router.put('/settings/model', (req, res) => {
   }
 });
 
-// GET /api/admin/users — list all users
+// GET /api/admin/users — list all users (with optional search)
 router.get('/users', (req, res) => {
   try {
     const db = getDb();
-    const users = db.prepare('SELECT id, username, display_name, email, role, created_at, updated_at FROM users ORDER BY id').all();
+    const search = (req.query.search || '').trim();
+    let users;
+    if (search) {
+      const pattern = `%${search}%`;
+      users = db.prepare(
+        `SELECT u.id, u.username, u.display_name, u.email, u.role, u.must_change_password, u.created_at, u.updated_at,
+                (SELECT MAX(a.created_at) FROM audit_log a WHERE a.user_id = u.id AND a.action = 'login_success') as last_login
+         FROM users u
+         WHERE u.username LIKE ? OR u.email LIKE ? OR u.display_name LIKE ?
+         ORDER BY u.id`
+      ).all(pattern, pattern, pattern);
+    } else {
+      users = db.prepare(
+        `SELECT u.id, u.username, u.display_name, u.email, u.role, u.must_change_password, u.created_at, u.updated_at,
+                (SELECT MAX(a.created_at) FROM audit_log a WHERE a.user_id = u.id AND a.action = 'login_success') as last_login
+         FROM users u ORDER BY u.id`
+      ).all();
+    }
     res.json(users);
+  } catch (err) {
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
+  }
+});
+
+// GET /api/admin/users/:id — single user detail
+router.get('/users/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const user = db.prepare('SELECT id, username, display_name, email, role, must_change_password, created_at, updated_at FROM users WHERE id = ?').get(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const loginCount = db.prepare("SELECT COUNT(*) as cnt FROM audit_log WHERE user_id = ? AND action = 'login_success'").get(req.params.id).cnt;
+    const lastLogin = db.prepare("SELECT MAX(created_at) as ts FROM audit_log WHERE user_id = ? AND action = 'login_success'").get(req.params.id).ts;
+    const contactCount = db.prepare('SELECT COUNT(*) as cnt FROM contacts WHERE user_id = ?').get(req.params.id).cnt;
+    const queryCount = db.prepare('SELECT COUNT(*) as cnt FROM ai_prompts WHERE user_id = ?').get(req.params.id).cnt;
+
+    res.json({
+      ...user,
+      login_count: loginCount,
+      last_login: lastLogin,
+      contact_count: contactCount,
+      query_count: queryCount,
+    });
+  } catch (err) {
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
+  }
+});
+
+// GET /api/admin/users/:id/audit-log — security events for a user
+router.get('/users/:id/audit-log', (req, res) => {
+  try {
+    const db = getDb();
+    const events = db.prepare(
+      `SELECT a.*, actor.username as actor_username
+       FROM audit_log a
+       LEFT JOIN users actor ON actor.id = a.actor_id
+       WHERE a.user_id = ? OR a.actor_id = ?
+       ORDER BY a.created_at DESC LIMIT 100`
+    ).all(req.params.id, req.params.id);
+    res.json(events);
+  } catch (err) {
+    console.error(err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: status < 500 ? err.message : 'Internal server error' });
+  }
+});
+
+// GET /api/admin/users/:id/query-history — AI prompt history for a user
+router.get('/users/:id/query-history', (req, res) => {
+  try {
+    const db = getDb();
+    const prompts = db.prepare(
+      'SELECT id, prompt_text, response_summary, created_at FROM ai_prompts WHERE user_id = ? ORDER BY created_at DESC LIMIT 50'
+    ).all(req.params.id);
+    res.json(prompts);
   } catch (err) {
     console.error(err);
     const status = err.statusCode || 500;
@@ -133,6 +224,14 @@ router.post('/users', async (req, res) => {
     ).run(username, hash, display_name || null, email, validRole);
 
     const user = db.prepare('SELECT id, username, display_name, email, role, created_at, updated_at FROM users WHERE id = ?').get(result.lastInsertRowid);
+
+    // Audit log: user_created
+    try {
+      db.prepare('INSERT INTO audit_log (user_id, actor_id, action, detail, ip_address) VALUES (?, ?, ?, ?, ?)').run(
+        user.id, req.user.id, 'user_created', JSON.stringify({ username, role: validRole }), req.ip
+      );
+    } catch (_) {}
+
     logger.info('admin_user_created', { adminId: req.user.id, createdUserId: user.id, username, requestId: req.requestId });
     res.status(201).json(user);
   } catch (err) {
@@ -225,6 +324,25 @@ router.put('/users/:id', async (req, res) => {
     db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);
 
     const updated = db.prepare('SELECT id, username, display_name, email, role, created_at, updated_at FROM users WHERE id = ?').get(req.params.id);
+
+    // Audit log: user_updated, password_reset_by_admin, role_changed
+    try {
+      const targetId = Number(req.params.id);
+      db.prepare('INSERT INTO audit_log (user_id, actor_id, action, detail, ip_address) VALUES (?, ?, ?, ?, ?)').run(
+        targetId, req.user.id, 'user_updated', JSON.stringify({ fields: Object.keys(req.body).filter(k => k !== 'password') }), req.ip
+      );
+      if (password) {
+        db.prepare('INSERT INTO audit_log (user_id, actor_id, action, ip_address) VALUES (?, ?, ?, ?)').run(
+          targetId, req.user.id, 'password_reset_by_admin', req.ip
+        );
+      }
+      if (role && role !== user.role) {
+        db.prepare('INSERT INTO audit_log (user_id, actor_id, action, detail, ip_address) VALUES (?, ?, ?, ?, ?)').run(
+          targetId, req.user.id, 'role_changed', JSON.stringify({ from: user.role, to: role === 'admin' ? 'admin' : 'user' }), req.ip
+        );
+      }
+    } catch (_) {}
+
     logger.info('admin_user_updated', { adminId: req.user.id, targetUserId: Number(req.params.id), requestId: req.requestId });
     res.json(updated);
   } catch (err) {
@@ -262,6 +380,13 @@ router.delete('/users/:id', (req, res) => {
     db.prepare('DELETE FROM ai_prompts WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM settings WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+
+    // Audit log: user_deleted (record before user data is gone)
+    try {
+      db.prepare('INSERT INTO audit_log (user_id, actor_id, action, detail, ip_address) VALUES (NULL, ?, ?, ?, ?)').run(
+        req.user.id, 'user_deleted', JSON.stringify({ deleted_user_id: userId, username: user.username }), req.ip
+      );
+    } catch (_) {}
 
     logger.info('admin_user_deleted', { adminId: req.user.id, deletedUserId: userId, deletedUsername: user.username, requestId: req.requestId });
     res.json({ message: 'User and all associated data deleted' });

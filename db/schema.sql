@@ -85,9 +85,22 @@ CREATE TABLE IF NOT EXISTS gmail_tokens (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  actor_id INTEGER,
+  action TEXT NOT NULL,
+  detail TEXT,
+  ip_address TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- Performance indexes (non-migration-dependent)
 CREATE INDEX IF NOT EXISTS idx_donations_contact_id ON donations(contact_id);
 CREATE INDEX IF NOT EXISTS idx_donations_date ON donations(date);
 CREATE INDEX IF NOT EXISTS idx_outreaches_contact_id ON outreaches(contact_id);
 CREATE INDEX IF NOT EXISTS idx_outreaches_date ON outreaches(date);
 CREATE INDEX IF NOT EXISTS idx_ai_prompts_user_id ON ai_prompts(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
