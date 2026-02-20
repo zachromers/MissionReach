@@ -607,6 +607,13 @@ document.getElementById('btn-load-more').addEventListener('click', async () => {
 
 // Update Send Email button visibility and href in outreach modal
 function updateSendEmailButton() {
+  // Reset Log Outreach button if it was marked as logged
+  const logBtn = document.querySelector('#outreach-form button[type="submit"]');
+  logBtn.textContent = 'Log Outreach';
+  logBtn.disabled = false;
+  // Restore Generate Recommended Outreach button if it was hidden
+  document.getElementById('btn-generate-outreach').classList.remove('hidden');
+
   const email = document.getElementById('outreach-contact-email').value;
   const mode = document.getElementById('outreach-mode').value;
   const subject = document.getElementById('outreach-subject').value;
@@ -666,6 +673,12 @@ document.getElementById('btn-send-email').addEventListener('click', async (e) =>
       body: { to: email, subject, body: content, contactId },
     });
     btn.textContent = 'Sent!';
+    // Mark the Log Outreach button as already logged
+    const logBtn = document.querySelector('#outreach-form button[type="submit"]');
+    logBtn.textContent = 'Logged';
+    logBtn.disabled = true;
+    // Hide the Generate Recommended Outreach button
+    document.getElementById('btn-generate-outreach').classList.add('hidden');
     // Refresh contact detail modal if it's still open so the new outreach appears
     const contactModal = document.getElementById('contact-modal');
     if (contactModal && !contactModal.classList.contains('hidden')) {
