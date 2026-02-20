@@ -423,7 +423,6 @@ async function generateDraftForContact(contactId, mode, btnEl, cardEl) {
           });
           btn.textContent = 'Sent!';
           btn.classList.add('sent');
-          setTimeout(() => { btn.textContent = 'Send via Gmail'; btn.classList.remove('sent'); btn.disabled = false; }, 3000);
         } catch (err) {
           alert('Failed to send email: ' + err.message);
           btn.textContent = 'Send via Gmail';
