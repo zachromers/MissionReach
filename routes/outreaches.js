@@ -3,6 +3,11 @@ const router = express.Router();
 const { getDb } = require('../db/database');
 const { validateOutreach, sanitizeOutreachFields } = require('../middleware/validate');
 
+// Frozen allowlist of outreach fields that may appear in UPDATE SET clauses.
+const ALLOWED_OUTREACH_COLUMNS = Object.freeze(new Set([
+  'mode', 'direction', 'subject', 'content', 'date', 'ai_generated', 'status',
+]));
+
 // POST /api/contacts/:contactId/outreaches
 router.post('/contacts/:contactId/outreaches', (req, res) => {
   try {
@@ -73,7 +78,7 @@ router.put('/:id', (req, res) => {
     const params = [];
 
     for (const field of fields) {
-      if (sanitized[field] !== undefined) {
+      if (sanitized[field] !== undefined && ALLOWED_OUTREACH_COLUMNS.has(field)) {
         updates.push(`${field} = ?`);
         params.push(field === 'ai_generated' ? (sanitized[field] ? 1 : 0) : sanitized[field]);
       }

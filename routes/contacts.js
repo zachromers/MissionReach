@@ -8,6 +8,16 @@ const { generateSingleWarmthScore } = require('../services/aiService');
 const { validateContact, sanitizeContactFields, validateDonation, sanitizeDonationFields, validateOutreach, sanitizeOutreachFields } = require('../middleware/validate');
 const { logger } = require('../middleware/logger');
 
+// Frozen allowlist of contact fields that may appear in UPDATE SET clauses.
+// This is a defense-in-depth measure: even if the `fields` array below is
+// ever derived from user input by mistake, only these column names will be
+// interpolated into SQL.
+const ALLOWED_CONTACT_COLUMNS = Object.freeze(new Set([
+  'first_name', 'last_name', 'email', 'phone',
+  'address_line1', 'address_line2', 'city', 'state', 'zip', 'country',
+  'organization', 'relationship', 'notes', 'tags', 'photo_url',
+]));
+
 // Configure multer for contact photo uploads
 const photosDir = path.join(__dirname, '..', 'public', 'uploads', 'photos');
 if (!fs.existsSync(photosDir)) {
@@ -522,7 +532,7 @@ router.put('/:id', (req, res) => {
     const params = [];
 
     for (const field of fields) {
-      if (sanitized[field] !== undefined) {
+      if (sanitized[field] !== undefined && ALLOWED_CONTACT_COLUMNS.has(field)) {
         updates.push(`${field} = ?`);
         params.push(sanitized[field]);
       }
@@ -691,11 +701,15 @@ router.post('/:id/photo', (req, res, next) => {
       return res.status(400).json({ error: 'Uploaded file is not a valid image. Only JPEG, PNG, GIF, and WebP are accepted.' });
     }
 
-    // Delete old uploaded photo if it exists (don't delete external URLs)
+    // Delete old uploaded photo if it exists (don't delete external URLs).
+    // Resolve the path and verify it stays within the photos directory to
+    // prevent path-traversal attacks (e.g. "uploads/photos/../../../etc/passwd").
     const oldUrl = contact.photo_url || '';
-    if (oldUrl.endsWith && (oldUrl.startsWith('/uploads/photos/') || oldUrl.startsWith('uploads/photos/'))) {
-      const oldPath = path.join(__dirname, '..', 'public', oldUrl.replace(/^\//, ''));
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    if (oldUrl.startsWith('/uploads/photos/') || oldUrl.startsWith('uploads/photos/')) {
+      const oldPath = path.resolve(__dirname, '..', 'public', oldUrl.replace(/^\//, ''));
+      if (oldPath.startsWith(photosDir + path.sep) && fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
+      }
     }
 
     const photoUrl = `uploads/photos/${req.file.filename}`;

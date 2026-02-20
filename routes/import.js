@@ -43,16 +43,16 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (['.csv', '.xlsx', '.xls'].includes(ext)) {
+    if (['.csv', '.xlsx'].includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV, XLSX, and XLS files are supported'));
+      cb(new Error('Only CSV and XLSX files are supported'));
     }
   }
 });
 
 // POST /api/import/preview
-router.post('/preview', upload.single('file'), (req, res) => {
+router.post('/preview', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -61,7 +61,7 @@ router.post('/preview', upload.single('file'), (req, res) => {
     const newPath = req.file.path + ext;
     fs.renameSync(req.file.path, newPath);
 
-    const { headers, rows } = parseFile(newPath);
+    const { headers, rows } = await parseFile(newPath);
     const mapping = autoDetectMapping(headers);
     const previewRows = rows.slice(0, 5);
 
@@ -196,7 +196,7 @@ function mergeTags(db, contacts, userId) {
 }
 
 // POST /api/import/execute
-router.post('/execute', (req, res) => {
+router.post('/execute', async (req, res) => {
   try {
     const { fileToken, mapping } = req.body;
     const userId = req.user.id;
@@ -211,7 +211,7 @@ router.post('/execute', (req, res) => {
       return res.status(400).json({ error: 'Uploaded file not found or expired. Please re-upload.' });
     }
 
-    const { rows } = parseFile(filePath);
+    const { rows } = await parseFile(filePath);
     const result = applyMapping(rows, mapping);
 
     const db = getDb();

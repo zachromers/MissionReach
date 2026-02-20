@@ -1,9 +1,21 @@
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const { parse } = require('csv-parse/sync');
 const fs = require('fs');
 const path = require('path');
 
 const MAX_IMPORT_ROWS = 50000;
+
+// Convert an ExcelJS cell value to a plain string.
+// ExcelJS returns rich objects for dates, rich text, formulas, etc.
+function cellValueToString(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value instanceof Date) return value.toISOString().split('T')[0];
+  if (value.richText) return value.richText.map(rt => rt.text).join('');
+  if (value.result !== undefined) return String(value.result);
+  return String(value);
+}
 
 const COLUMN_MAP_ALIASES = {
   full_name: ['full name', 'full_name', 'name', 'contact name', 'contact'],
@@ -24,7 +36,7 @@ const COLUMN_MAP_ALIASES = {
   tags: ['tags', 'tag', 'categories', 'category', 'groups', 'group'],
 };
 
-function parseFile(filePath) {
+async function parseFile(filePath) {
   const ext = path.extname(filePath).toLowerCase();
 
   if (ext === '.csv') {
@@ -37,16 +49,45 @@ function parseFile(filePath) {
     return { headers: Object.keys(records[0]), rows: records };
   }
 
-  // xlsx or xls
-  const workbook = XLSX.readFile(filePath);
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-  if (rows.length === 0) return { headers: [], rows: [] };
+  // .xlsx (ExcelJS replaces the vulnerable SheetJS/xlsx package)
+  if (ext === '.xls') {
+    throw Object.assign(
+      new Error('The legacy .xls format is no longer supported. Please re-save the file as .xlsx or .csv and try again.'),
+      { statusCode: 400 },
+    );
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  const sheet = workbook.worksheets[0];
+  if (!sheet || sheet.rowCount === 0) return { headers: [], rows: [] };
+
+  // First row = headers
+  const headerRow = sheet.getRow(1);
+  const headers = [];
+  headerRow.eachCell({ includeEmpty: false }, (cell) => {
+    headers.push(cellValueToString(cell.value).trim());
+  });
+  if (headers.length === 0) return { headers: [], rows: [] };
+
+  // Data rows (starting at row 2)
+  const rows = [];
+  for (let i = 2; i <= sheet.rowCount; i++) {
+    const row = sheet.getRow(i);
+    const obj = {};
+    let hasData = false;
+    for (let j = 0; j < headers.length; j++) {
+      const value = cellValueToString(row.getCell(j + 1).value).trim();
+      obj[headers[j]] = value;
+      if (value) hasData = true;
+    }
+    if (hasData) rows.push(obj);
+  }
+
   if (rows.length > MAX_IMPORT_ROWS) {
     throw Object.assign(new Error(`File exceeds the maximum of ${MAX_IMPORT_ROWS.toLocaleString()} rows`), { statusCode: 400 });
   }
-  return { headers: Object.keys(rows[0]), rows };
+  return { headers, rows };
 }
 
 function autoDetectMapping(headers) {

@@ -3,6 +3,11 @@ const router = express.Router();
 const { getDb } = require('../db/database');
 const { validateDonation, sanitizeDonationFields } = require('../middleware/validate');
 
+// Frozen allowlist of donation fields that may appear in UPDATE SET clauses.
+const ALLOWED_DONATION_COLUMNS = Object.freeze(new Set([
+  'amount', 'date', 'method', 'recurring', 'notes',
+]));
+
 // GET /api/contacts/:id/donations — mounted at /api/donations but we handle contact-scoped routes in contacts router
 // This router handles /api/donations/:id and /api/contacts/:contactId/donations
 
@@ -73,7 +78,7 @@ router.put('/:id', (req, res) => {
     const params = [];
 
     for (const field of fields) {
-      if (sanitized[field] !== undefined) {
+      if (sanitized[field] !== undefined && ALLOWED_DONATION_COLUMNS.has(field)) {
         updates.push(`${field} = ?`);
         params.push(field === 'recurring' ? (sanitized[field] ? 1 : 0) : sanitized[field]);
       }
