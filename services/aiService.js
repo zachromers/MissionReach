@@ -565,6 +565,7 @@ Guidelines:
 - Use the missionary's name as the sender
 - Never be pushy about donations — focus on relationship and gratitude
 - If the contact is a lapsed donor, frame outreach around reconnection, not asking for money
+- ABSOLUTELY DO NOT use the em-dash character (—) anywhere in your output. Never use "—" under any circumstances. Use commas, periods, semicolons, colons, parentheses, or separate sentences instead. This is a strict, non-negotiable rule.
 
 Return ONLY valid JSON in this exact format:
 {

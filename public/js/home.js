@@ -666,7 +666,12 @@ document.getElementById('btn-send-email').addEventListener('click', async (e) =>
       body: { to: email, subject, body: content, contactId },
     });
     btn.textContent = 'Sent!';
-    setTimeout(() => { btn.textContent = 'Send via Gmail'; btn.classList.remove('disabled'); }, 3000);
+    // Refresh contact detail modal if it's still open so the new outreach appears
+    const contactModal = document.getElementById('contact-modal');
+    if (contactModal && !contactModal.classList.contains('hidden')) {
+      openContactDetail(contactId);
+    }
+    loadContactCarousel();
   } catch (err) {
     alert('Failed to send email: ' + err.message);
     btn.textContent = 'Send via Gmail';
