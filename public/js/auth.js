@@ -105,11 +105,11 @@ function showLogin() {
     .then(res => res.json())
     .then(data => {
       const link = document.getElementById('link-show-register');
-      if (link) link.style.display = data.allowed ? '' : 'none';
+      if (link) link.closest('.login-toggle').style.display = data.allowed ? '' : 'none';
     })
     .catch(() => {
       const link = document.getElementById('link-show-register');
-      if (link) link.style.display = 'none';
+      if (link) link.closest('.login-toggle').style.display = 'none';
     });
 }
 
