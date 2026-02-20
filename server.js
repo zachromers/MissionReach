@@ -114,7 +114,23 @@ app.use('/api/auth', require('./routes/auth'));
 // Gmail OAuth callback — mounted before requireAuth because Google's redirect
 // won't include the auth cookie (sameSite=strict blocks cross-site navigations).
 // The route uses a signed JWT in the state parameter to verify the user instead.
-app.get('/api/gmail/callback', require('./routes/gmail'));
+const gmailCallbackRouter = express.Router();
+const gmailService = require('./services/gmailService');
+gmailCallbackRouter.get('/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+  const appBase = process.env.APP_BASE_PATH || '/';
+  if (error) return res.redirect(appBase + '?gmail=denied');
+  if (!code || !state) return res.redirect(appBase + '?gmail=error');
+  try {
+    const userId = gmailService.verifyState(state);
+    await gmailService.handleCallback(code, userId);
+    res.redirect(appBase + '?gmail=connected');
+  } catch (err) {
+    logger.error('gmail_callback_error', { error: err.message });
+    res.redirect(appBase + '?gmail=error');
+  }
+});
+app.use('/api/gmail', gmailCallbackRouter);
 
 // Apply requireAuth and general rate limiting to all other /api/* routes
 app.use('/api', requireAuth);
