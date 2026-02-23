@@ -217,7 +217,7 @@ router.post('/users', async (req, res) => {
     }
 
     const DEFAULT_PASSWORD = 'password123';
-    const hash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
+    const hash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
     const validRole = role === 'admin' ? 'admin' : 'user';
     const result = db.prepare(
       'INSERT INTO users (username, password_hash, display_name, email, role, must_change_password) VALUES (?, ?, ?, ?, ?, 1)'
@@ -297,7 +297,7 @@ router.put('/users/:id', async (req, res) => {
         return res.status(400).json({ error: 'Password must be at least 6 characters' });
       }
       updates.push('password_hash = ?');
-      params.push(await bcrypt.hash(password, 10));
+      params.push(await bcrypt.hash(password, 12));
       // Force user to change password on next login and invalidate existing tokens
       updates.push('must_change_password = 1');
       updates.push('token_version = token_version + 1');

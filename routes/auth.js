@@ -144,7 +144,7 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'Email already in use' });
     }
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 12);
     const result = db.prepare(
       'INSERT INTO users (username, password_hash, display_name, email, role, must_change_password) VALUES (?, ?, ?, ?, ?, 0)'
     ).run(username, hash, display_name, email, 'user');
@@ -221,7 +221,7 @@ router.put('/password', requireAuth, async (req, res) => {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
-    const hash = await bcrypt.hash(new_password, 10);
+    const hash = await bcrypt.hash(new_password, 12);
     // Increment token_version to invalidate all existing tokens
     db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hash, req.user.id);
 
