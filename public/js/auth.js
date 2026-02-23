@@ -221,8 +221,8 @@ async function handleForcePasswordChange(e) {
     return;
   }
 
-  if (newPwd.length < 6) {
-    errorEl.textContent = 'New password must be at least 6 characters.';
+  if (newPwd.length < 8) {
+    errorEl.textContent = 'New password must be at least 8 characters.';
     errorEl.classList.remove('hidden');
     return;
   }
@@ -284,8 +284,8 @@ async function handleRegister(e) {
     return;
   }
 
-  if (password.length < 6) {
-    errorEl.textContent = 'Password must be at least 6 characters.';
+  if (password.length < 8) {
+    errorEl.textContent = 'Password must be at least 8 characters.';
     errorEl.classList.remove('hidden');
     return;
   }
@@ -399,9 +399,9 @@ function validatePassword() {
     hint.classList.remove('hidden');
     return;
   }
-  if (val.length < 6) {
+  if (val.length < 8) {
     hint.classList.add('hidden');
-    setFieldError('register-password', 'error-password', 'Must be at least 6 characters.');
+    setFieldError('register-password', 'error-password', 'Must be at least 8 characters.');
   } else {
     setFieldError('register-password', 'error-password', '');
     hint.classList.add('hidden');

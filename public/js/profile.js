@@ -79,8 +79,8 @@ document.getElementById('profile-change-password-form').addEventListener('submit
     return;
   }
 
-  if (newPwd.length < 6) {
-    msgEl.textContent = 'New password must be at least 6 characters.';
+  if (newPwd.length < 8) {
+    msgEl.textContent = 'New password must be at least 8 characters.';
     msgEl.className = 'error';
     msgEl.classList.remove('hidden');
     return;

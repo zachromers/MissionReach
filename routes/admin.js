@@ -293,8 +293,8 @@ router.put('/users/:id', async (req, res) => {
       params.push(username);
     }
     if (password) {
-      if (password.length < 6) {
-        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
       }
       updates.push('password_hash = ?');
       params.push(await bcrypt.hash(password, 12));
