@@ -600,7 +600,8 @@ Return ONLY valid JSON in this exact format:
     }
   }
 
-  return { subject: parsed.subject || '', content: parsed.content || '' };
+  const strip = s => s.replace(/\s*\u2014\s*/g, ', ').replace(/^,\s*/, '').replace(/,\s*$/, '');
+  return { subject: strip(parsed.subject || ''), content: strip(parsed.content || '') };
 }
 
 module.exports = { processPrompt, generateWarmthScores, generateSingleWarmthScore, generateOutreachDraft };
